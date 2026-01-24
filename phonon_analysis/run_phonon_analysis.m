@@ -59,8 +59,10 @@ frame_skip = 'auto';
 % Target number of frames for analysis (used with 'auto')
 target_frames = 600;
 
-% Base time step (will be adjusted based on actual frame_skip used)
-dt_base = dt_per_step * 100;  % Assumes effective 100 steps between analyzed frames
+% Time step between analyzed frames
+% For sims with all 60000 frames + frame_skip=100: dt = 0.05 * 100 = 5.0
+% For sims with 600 frames (already subsampled): dt = 0.05 * 100 = 5.0
+dt = dt_per_step * 100;  % Effective time step (100 sim steps between analyzed frames)
 
 % --- Analysis Options ---
 analyze_single_sim = true;       % Run full analysis on first simulation
