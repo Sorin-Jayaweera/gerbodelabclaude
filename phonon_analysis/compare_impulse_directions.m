@@ -37,6 +37,9 @@ data_saving_frequency = 100;
 dt_sim = 0.05;
 dt = dt_sim * data_saving_frequency;
 
+% Simulation box size (for periodic boundary unwrapping)
+box_size = [500, 300];  % [Lx, Ly] in pixels
+
 %% ========== LOAD AND PROCESS ALL SIMULATIONS ==========
 
 n_sims = length(sim_names);
@@ -55,6 +58,9 @@ for s = 1:n_sims
 
     load(plist_file, 'plist');
     xyz = plist2xyz_auto(plist);
+
+    % Unwrap periodic boundary crossings
+    xyz = unwrap_periodic(xyz, box_size);
 
     [N_particles, N_dims, N_frames] = size(xyz);
     fprintf('Loaded %d particles, %d frames\n', N_particles, N_frames);

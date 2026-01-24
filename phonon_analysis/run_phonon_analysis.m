@@ -43,6 +43,10 @@ particle_diameter = 10;          % pixels (simulation)
 looseness = 1.06;                % lattice looseness parameter
 lattice_constant = particle_diameter * looseness;
 
+% Simulation box size (for periodic boundary unwrapping)
+% From your sim setup: width=500, height=300
+box_size = [500, 300];  % [Lx, Ly] in pixels
+
 % --- Simulation Time Parameters ---
 % From TDsim: step_size = 0.05, data_saving_frequency = 100
 dt_per_step = 0.05;              % simulation time per step
@@ -92,6 +96,9 @@ for s = 1:n_sims
 
         % Convert to xyz format: [N_particles, 3, N_frames]
         xyz = plist2xyz_auto(plist);
+
+        % Unwrap periodic boundary crossings
+        xyz = unwrap_periodic(xyz, box_size);
 
         data = struct();
         data.xyz = xyz;
