@@ -75,7 +75,7 @@ t_lag = (0:max_lag)' * dt;
 fprintf('Computing density of states...\n');
 
 % Apply windowing
-window = hanning(length(vacf));
+window = hann_window(length(vacf));
 vacf_windowed = vacf .* window;
 
 % Zero-pad for better frequency resolution

@@ -171,8 +171,8 @@ figure('Position', [100, 100, 800, 600]);
 
 % Pad and apply window
 [n_x, n_t] = size(kymograph);
-window_x = hanning(n_x);
-window_t = hanning(n_t)';
+window_x = hann_window(n_x);
+window_t = hann_window(n_t)';
 kymograph_windowed = kymograph .* (window_x * window_t);
 
 % 2D FFT

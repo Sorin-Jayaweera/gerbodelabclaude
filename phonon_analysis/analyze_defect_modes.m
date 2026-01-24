@@ -67,7 +67,7 @@ f = (0:N_frames-1) * fs / N_frames;
 n_pos = floor(N_frames/2) + 1;
 f_pos = f(1:n_pos);
 
-window = hanning(N_frames)';
+window = hann_window(N_frames)';
 
 % Function to compute average power spectrum for a group
 compute_group_spectrum = @(indices) compute_avg_spectrum(ux(indices,:), uy(indices,:), window, n_pos);

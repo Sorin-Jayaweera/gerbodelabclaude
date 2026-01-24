@@ -78,7 +78,7 @@ x_acoustic = mean(ux, 1);
 y_acoustic = mean(uy, 1);
 
 %% Fourier analysis
-window = hanning(N_frames)';
+window = hann_window(N_frames)';
 fs = 1/dt;
 f = (0:N_frames-1) * fs / N_frames;
 n_pos = floor(N_frames/2) + 1;

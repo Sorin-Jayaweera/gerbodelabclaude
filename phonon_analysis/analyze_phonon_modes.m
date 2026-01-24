@@ -79,7 +79,7 @@ f_nyquist = fs/2;
 
 % Apply windowing if requested
 if use_windowing
-    window = hanning(N_frames)';
+    window = hann_window(N_frames)';
     ux_windowed = ux .* window;
     uy_windowed = uy .* window;
     uz_windowed = uz .* window;

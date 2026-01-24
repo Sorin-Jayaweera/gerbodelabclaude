@@ -51,16 +51,16 @@ box_size = [500, 300];  % [Lx, Ly] in pixels
 % TDsim step_size = 0.05 (time per simulation step)
 dt_per_step = 0.05;
 
-% Frame subsampling (for large datasets)
-% Your sims have 60,000 frames total. Set frame_skip to reduce to ~600 frames.
-% If plist already has only 600 frames (data_saving_frequency=100), set to 1.
-frame_skip = 100;  % Use every 100th frame
+% Frame subsampling - set to 'auto' to automatically detect
+% 'auto': If >10000 frames, subsample to ~600. Otherwise use all.
+% Or set to specific number (e.g., 100 to use every 100th frame)
+frame_skip = 'auto';
 
-% Effective time step between analyzed frames
-% = (time per step) * (steps between saved frames) * (frame_skip)
-% If all frames saved: dt = 0.05 * 1 * 100 = 5.0
-% If every 100th saved: dt = 0.05 * 100 * 1 = 5.0
-dt = dt_per_step * frame_skip;  % Assuming all frames were saved to plist
+% Target number of frames for analysis (used with 'auto')
+target_frames = 600;
+
+% Base time step (will be adjusted based on actual frame_skip used)
+dt_base = dt_per_step * 100;  % Assumes effective 100 steps between analyzed frames
 
 % --- Analysis Options ---
 analyze_single_sim = true;       % Run full analysis on first simulation
@@ -103,9 +103,28 @@ for s = 1:n_sims
             plist = loaded.(fn{1});
         end
 
+        % Determine frame_skip for this simulation
+        % First, detect number of frames in plist
+        frame_col = plist(:, end);
+        first_frame_val = frame_col(1);
+        num_particles_detect = sum(frame_col == first_frame_val);
+        num_frames_detect = size(plist, 1) / num_particles_detect;
+
+        if ischar(frame_skip) && strcmp(frame_skip, 'auto')
+            if num_frames_detect > 10000
+                this_frame_skip = ceil(num_frames_detect / target_frames);
+                fprintf('  Auto frame_skip: %d (reducing %d -> ~%d frames)\n', ...
+                    this_frame_skip, round(num_frames_detect), target_frames);
+            else
+                this_frame_skip = 1;
+                fprintf('  Auto frame_skip: 1 (keeping all %d frames)\n', round(num_frames_detect));
+            end
+        else
+            this_frame_skip = frame_skip;
+        end
+
         % Convert to xyz format: [N_particles, 3, N_frames]
-        % Use frame_skip to subsample large datasets
-        xyz = plist2xyz_auto(plist, frame_skip);
+        xyz = plist2xyz_auto(plist, this_frame_skip);
 
         % Unwrap periodic boundary crossings
         xyz = unwrap_periodic(xyz, box_size);
@@ -156,7 +175,7 @@ if analyze_single_sim && ~isempty(all_data{1})
     % --- Temporal Fourier Analysis ---
     fprintf('Computing Fourier analysis...\n');
 
-    window = hanning(N_frames)';
+    window = hann_window(N_frames)';
     Ux = fft(ux .* window, [], 2);
     Uy = fft(uy .* window, [], 2);
     Uz = fft(uz .* window, [], 2);
@@ -342,7 +361,7 @@ if compare_directions && n_sims >= 3
         ux = x - x0; ux = ux - mean(ux, 1);
         uy = y - y0; uy = uy - mean(uy, 1);
 
-        window = hanning(N_frames)';
+        window = hann_window(N_frames)';
         Ux = fft(ux .* window, [], 2);
         Uy = fft(uy .* window, [], 2);
 

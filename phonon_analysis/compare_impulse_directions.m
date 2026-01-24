@@ -82,7 +82,7 @@ for s = 1:n_sims
     uy = uy - mean(uy, 1);
 
     % Temporal FFT
-    window = hanning(N_frames)';
+    window = hann_window(N_frames)';
     Ux = fft(ux .* window, [], 2);
     Uy = fft(uy .* window, [], 2);
 

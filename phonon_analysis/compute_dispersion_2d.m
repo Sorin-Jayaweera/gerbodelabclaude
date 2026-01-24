@@ -73,7 +73,7 @@ ky = linspace(-k_max, k_max, n_k);
 
 %% Compute temporal FFT of displacements
 fprintf('  Computing temporal FFT...\n');
-window = hanning(N_frames)';
+window = hann_window(N_frames)';
 Ux = fft(ux .* window, [], 2);  % [N_particles, N_frames]
 Uy = fft(uy .* window, [], 2);
 
