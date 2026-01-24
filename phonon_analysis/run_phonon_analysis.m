@@ -17,13 +17,23 @@ clear; close all; clc;
 %% ==================== CONFIGURATION ====================
 % Modify these parameters for your analysis
 
+% --- Path Setup ---
+% Base path to simulation data
+sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\PhononSims';
+
 % --- Simulation Info ---
-% List your simulation folders here
-sim_folders = {
+% Simulation folder names (relative to sim_base_path)
+sim_names = {
     'onaxisphonon1impulse_.5',   % 0° direction
     'onaxisphonon2impulse_.5',   % 60° direction
     'onaxisphonon3impulse_.5'    % 120° direction
 };
+
+% Build full paths
+sim_folders = cell(size(sim_names));
+for i = 1:length(sim_names)
+    sim_folders{i} = fullfile(sim_base_path, sim_names{i});
+end
 
 % Labels for crystallographic directions (triangular lattice principal axes)
 direction_labels = {'0° (a_1)', '60° (a_2)', '120° (a_3)'};

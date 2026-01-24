@@ -8,7 +8,10 @@ clear; clc;
 fprintf('=== Data Verification Script ===\n\n');
 
 %% Check for plist files
-sim_folder = 'onaxisphonon3impulse_.5';  % Change to your folder
+% Path to your simulation data
+sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\PhononSims';
+sim_name = 'onaxisphonon3impulse_.5';  % Change to your simulation name
+sim_folder = fullfile(sim_base_path, sim_name);
 
 plist_path = fullfile(sim_folder, 'plist.mat');
 if ~exist(plist_path, 'file')

@@ -10,7 +10,10 @@
 
 %% ========== CONFIGURATION ==========
 
-% List of simulation folders/names
+% Path to simulation data
+sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\PhononSims';
+
+% List of simulation folder names
 sim_names = {
     'onaxisphonon1impulse_.5',   % Direction 1
     'onaxisphonon2impulse_.5',   % Direction 2
@@ -42,11 +45,12 @@ all_results = cell(n_sims, 1);
 for s = 1:n_sims
     fprintf('\n========== Processing %s ==========\n', sim_names{s});
 
-    % Load data
-    plist_file = [sim_names{s} '/plist.mat'];
+    % Load data - construct full path
+    sim_folder = fullfile(sim_base_path, sim_names{s});
+    plist_file = fullfile(sim_folder, 'plist.mat');
     if ~exist(plist_file, 'file')
-        % Try alternative path
-        plist_file = [sim_names{s} '.mat'];
+        % Try alternative naming
+        plist_file = fullfile(sim_base_path, [sim_names{s} '_plist.mat']);
     end
 
     load(plist_file, 'plist');
