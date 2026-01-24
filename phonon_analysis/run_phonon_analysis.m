@@ -133,7 +133,7 @@ for s = 1:n_sims
 
         data = struct();
         data.xyz = xyz;
-        data.name = sim_folders{s};
+        data.name = sim_names{s};  % Use just folder name, not full path
         data.label = direction_labels{s};
         [data.N_particles, data.N_dims, data.N_frames] = size(xyz);
 
