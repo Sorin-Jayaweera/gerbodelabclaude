@@ -48,10 +48,19 @@ lattice_constant = particle_diameter * looseness;
 box_size = [500, 300];  % [Lx, Ly] in pixels
 
 % --- Simulation Time Parameters ---
-% From TDsim: step_size = 0.05, data_saving_frequency = 100
-dt_per_step = 0.05;              % simulation time per step
-steps_per_saved_frame = 100;     % data_saving_frequency
-dt = dt_per_step * steps_per_saved_frame;  % time between saved frames
+% TDsim step_size = 0.05 (time per simulation step)
+dt_per_step = 0.05;
+
+% Frame subsampling (for large datasets)
+% Your sims have 60,000 frames total. Set frame_skip to reduce to ~600 frames.
+% If plist already has only 600 frames (data_saving_frequency=100), set to 1.
+frame_skip = 100;  % Use every 100th frame
+
+% Effective time step between analyzed frames
+% = (time per step) * (steps between saved frames) * (frame_skip)
+% If all frames saved: dt = 0.05 * 1 * 100 = 5.0
+% If every 100th saved: dt = 0.05 * 100 * 1 = 5.0
+dt = dt_per_step * frame_skip;  % Assuming all frames were saved to plist
 
 % --- Analysis Options ---
 analyze_single_sim = true;       % Run full analysis on first simulation
@@ -95,7 +104,8 @@ for s = 1:n_sims
         end
 
         % Convert to xyz format: [N_particles, 3, N_frames]
-        xyz = plist2xyz_auto(plist);
+        % Use frame_skip to subsample large datasets
+        xyz = plist2xyz_auto(plist, frame_skip);
 
         % Unwrap periodic boundary crossings
         xyz = unwrap_periodic(xyz, box_size);
