@@ -54,7 +54,7 @@ for s = 1:n_sims
     end
 
     load(plist_file, 'plist');
-    xyz = plist2xyz(plist);
+    xyz = plist2xyz_auto(plist);
 
     [N_particles, N_dims, N_frames] = size(xyz);
     fprintf('Loaded %d particles, %d frames\n', N_particles, N_frames);

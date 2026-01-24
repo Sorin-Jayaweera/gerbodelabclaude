@@ -54,27 +54,12 @@ for c = 1:size(plist, 2)
 end
 
 %% Convert to xyz format
-fprintf('\nConverting with plist2xyz...\n');
+fprintf('\nConverting with plist2xyz_auto...\n');
 
-try
-    xyz = plist2xyz(plist);
-    fprintf('Success! xyz size: [%s]\n', num2str(size(xyz)));
-    fprintf('  Interpretation: [%d particles, %d dimensions, %d frames]\n', ...
-        size(xyz, 1), size(xyz, 2), size(xyz, 3));
-catch ME
-    fprintf('Error in plist2xyz: %s\n', ME.message);
-    fprintf('\nTrying manual conversion...\n');
-
-    % Manual conversion attempt
-    frames = unique(plist(:, 4));
-    num_frames = length(frames);
-    particles_per_frame = sum(plist(:, 4) == frames(1));
-
-    fprintf('Detected %d frames with %d particles each\n', num_frames, particles_per_frame);
-
-    xyz = plist2xyz(plist, particles_per_frame, num_frames);
-    fprintf('Manual conversion successful! xyz size: [%s]\n', num2str(size(xyz)));
-end
+xyz = plist2xyz_auto(plist);
+fprintf('Success! xyz size: [%s]\n', num2str(size(xyz)));
+fprintf('  Interpretation: [%d particles, %d dimensions, %d frames]\n', ...
+    size(xyz, 1), size(xyz, 2), size(xyz, 3));
 
 %% Verify xyz dimensions
 [N_particles, N_dims, N_frames] = size(xyz);

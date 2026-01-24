@@ -91,7 +91,7 @@ for s = 1:n_sims
         end
 
         % Convert to xyz format: [N_particles, 3, N_frames]
-        xyz = plist2xyz(plist);
+        xyz = plist2xyz_auto(plist);
 
         data = struct();
         data.xyz = xyz;
