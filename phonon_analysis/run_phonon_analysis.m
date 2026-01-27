@@ -22,10 +22,9 @@ clear; close all; clc;
 sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\PhononSims';
 
 % --- Simulation Info ---
-% Simulation folder names (relative to sim_base_path)
-% Strong impulse simulation: 5 pixel impulse from left edge, data_saving_frequency=10
+% Sinusoidal driving simulation for dispersion measurement
 sim_names = {
-    'strongimpulse_5px_freq10'   % Strong 5px impulse, 0° direction
+    'sinusoidal_f0.0100_a2.0'   % Sinusoidal drive at f=0.01 per frame
 };
 
 % Build full paths
@@ -35,7 +34,7 @@ for i = 1:length(sim_names)
 end
 
 % Labels for simulations
-direction_labels = {'Strong impulse (5px, 0°)'};
+direction_labels = {'Sinusoidal f=0.01'};
 
 % --- Physical Parameters ---
 particle_diameter = 10;          % pixels (simulation)
@@ -47,25 +46,20 @@ lattice_constant = particle_diameter * looseness;
 box_size = [500, 300];  % [Lx, Ly] in pixels
 
 % --- Simulation Time Parameters ---
-% TDsim uses Brownian dynamics with time_per_frame calculated from diffusion
-% For this sim: data_saving_frequency = 10 (saved every 10 frames)
-% Each frame is 10 iterations, so each plist entry = 10 frames * 10 iterations = 100 steps
-% Time per step ~ (sigma/D)^2 * 4s * iterations = very small
-% For analysis, we use frame index as time unit and convert later if needed
-dt = 1;  % Use frame number as time unit (each frame = 10 sim frames)
+% For sinusoidal sim: data_saving_frequency = 10
+% dt = 1 means we use data frame number as time unit
+dt = 1;
 
-% Frame subsampling - set to 'auto' to automatically detect
-% 'auto': If >10000 frames, subsample to ~1000. Otherwise use all.
-% The strong impulse sim has ~6000 data frames - use more for better resolution
-frame_skip = 'auto';
+% Frame subsampling
+frame_skip = 1;  % Use ALL frames for sinusoidal - we want full resolution
 
-% Target number of frames for analysis (used with 'auto')
-target_frames = 1000;  % Use 1000 frames for good frequency resolution
+% Target number of frames for analysis (not used when frame_skip=1)
+target_frames = 2000;
 
 % --- Analysis Options ---
 analyze_single_sim = true;       % Run full analysis on first simulation
 compare_directions = false;      % Only one simulation for now
-analyze_wave_propagation = true; % Visualize wave propagation - KEY for impulse response
+analyze_wave_propagation = true; % KEY - should show traveling waves now!
 analyze_defects = false;         % Analyze defect modes (set true if defects present)
 compute_dos = true;              % Compute density of states
 create_animations = false;       % Create video animations (slow)
