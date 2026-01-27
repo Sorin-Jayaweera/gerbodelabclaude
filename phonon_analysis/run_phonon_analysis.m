@@ -268,28 +268,31 @@ if analyze_single_sim && ~isempty(all_data{1})
 
     % Mode shape for dominant mode
     subplot(2, 3, 5);
+    % If no peaks found, use max power frequency (excluding DC at index 1)
     if ~isempty(locs_sorted)
         mode_idx = locs_sorted(1);
-        mode_amp = abs(Ux(:,mode_idx)) + abs(Uy(:,mode_idx));
-        scatter(x0, y0, 20, mode_amp, 'filled');
-        colormap(hot);
-        colorbar;
-        axis equal;
-        title(sprintf('Mode Shape at f = %.4f', f_pos(mode_idx)));
-        xlabel('x'); ylabel('y');
+    else
+        % Find frequency with max power, excluding DC (index 1)
+        [~, mode_idx] = max(P_total(2:n_pos));
+        mode_idx = mode_idx + 1;  % Adjust for skipping index 1
     end
+    mode_amp = abs(Ux(:,mode_idx)) + abs(Uy(:,mode_idx));
+    scatter(x0, y0, 20, mode_amp, 'filled');
+    colormap(hot);
+    colorbar;
+    axis equal;
+    title(sprintf('Mode Shape at f = %.4f', f_pos(mode_idx)));
+    xlabel('x'); ylabel('y');
 
     % Mode shape vectors for dominant mode
     subplot(2, 3, 6);
-    if ~isempty(locs_sorted)
-        scale = 30;
-        scatter(x0, y0, 10, [0.7 0.7 0.7], 'filled');
-        hold on;
-        quiver(x0, y0, scale*real(Ux(:,mode_idx)), scale*real(Uy(:,mode_idx)), 0, 'r', 'LineWidth', 0.8);
-        axis equal;
-        title(sprintf('Mode Displacement Pattern'));
-        xlabel('x'); ylabel('y');
-    end
+    scale = 30;
+    scatter(x0, y0, 10, [0.7 0.7 0.7], 'filled');
+    hold on;
+    quiver(x0, y0, scale*real(Ux(:,mode_idx)), scale*real(Uy(:,mode_idx)), 0, 'r', 'LineWidth', 0.8);
+    axis equal;
+    title(sprintf('Mode Displacement Pattern at f = %.4f', f_pos(mode_idx)));
+    xlabel('x'); ylabel('y');
 
     saveas(gcf, fullfile(output_folder, [data.name '_analysis.png']));
     saveas(gcf, fullfile(output_folder, [data.name '_analysis.fig']));
