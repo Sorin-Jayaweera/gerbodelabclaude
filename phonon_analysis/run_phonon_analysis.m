@@ -280,11 +280,24 @@ if analyze_single_sim && ~isempty(all_data{1})
 
     % Mode shape vectors for dominant mode
     subplot(2, 3, 6);
-    scale = 30;
+    % Normalize vectors to max length, then scale for visibility
+    ux_mode = real(Ux(:,mode_idx));
+    uy_mode = real(Uy(:,mode_idx));
+    max_amp = max(sqrt(ux_mode.^2 + uy_mode.^2));
+    if max_amp > 0
+        ux_norm = ux_mode / max_amp;
+        uy_norm = uy_mode / max_amp;
+    else
+        ux_norm = ux_mode;
+        uy_norm = uy_mode;
+    end
+    scale = 15;  % Scale for normalized vectors
     scatter(x0, y0, 10, [0.7 0.7 0.7], 'filled');
     hold on;
-    quiver(x0, y0, scale*real(Ux(:,mode_idx)), scale*real(Uy(:,mode_idx)), 0, 'r', 'LineWidth', 0.8);
+    quiver(x0, y0, scale*ux_norm, scale*uy_norm, 0, 'r', 'LineWidth', 0.8);
     axis equal;
+    xlim([min(x0)-20, max(x0)+20]);
+    ylim([min(y0)-20, max(y0)+20]);
     title(sprintf('Mode Displacement Pattern at f = %.4f', f_pos(mode_idx)));
     xlabel('x'); ylabel('y');
 
