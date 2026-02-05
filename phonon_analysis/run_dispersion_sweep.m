@@ -20,18 +20,20 @@ clear; clc;
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
 
 % Frequencies to sweep (oscillations per simulation frame)
-% EXPANDED for overnight run - 20 frequencies for dense dispersion curve
+% FULL OVERNIGHT RUN - 20 frequencies for dense dispersion curve (~10 hours)
 % Note: f=0.01 means 100 frames per oscillation cycle
 %       f=0.05 means 20 frames per oscillation cycle
 %       Lower f = longer wavelength, easier to measure
 %       Higher f = shorter wavelength, more attenuation
 
-frequencies = [0.001, 0.0015, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, ...
-               0.01, 0.012, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08];
+frequencies = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, ...
+               0.012, 0.015, 0.018, 0.02, 0.025, 0.03, 0.04, 0.05, ...
+               0.06, 0.07, 0.08, 0.10];
 
-% Already completed (will be skipped automatically):
-% [0.002, 0.005, 0.01, 0.02, 0.03, 0.05]
-% New frequencies to run: 14 simulations × ~30 min = ~7 hours
+% 20 frequencies × ~30 min each = ~10 hours
+% DELETE existing folders to re-run all:
+%   In MATLAB: rmdir('sinusoidal_*', 's')  OR
+%   Delete folders manually in Windows Explorer
 
 % Common parameters for all simulations
 drive_amplitude = 2.0;       % Pixels
