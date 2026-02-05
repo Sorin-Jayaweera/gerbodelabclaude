@@ -18,7 +18,9 @@ clear; close all; clc;
 sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\PhononSims';
 
 % Frequencies that were run (should match run_dispersion_sweep.m)
-frequencies = [0.002, 0.005, 0.01, 0.02, 0.03, 0.05];
+% EXPANDED list for dense dispersion curve
+frequencies = [0.001, 0.0015, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, ...
+               0.01, 0.012, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08];
 drive_amplitude = 2.0;
 
 % Physical parameters
