@@ -14,8 +14,8 @@ clear; close all; clc;
 
 %% ==================== CONFIGURATION ====================
 
-% Path to simulations
-sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\PhononSims';
+% Path to simulations (inside the git repo)
+sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\PhononSims';
 
 % Frequencies that were run (should match run_dispersion_sweep.m)
 frequencies = [0.002, 0.005, 0.01, 0.02, 0.03, 0.05];
