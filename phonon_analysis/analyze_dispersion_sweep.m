@@ -84,8 +84,8 @@ for i = 1:length(frequencies)
     ux = ux - mean(ux, 1);  % Remove COM drift
 
     %% Create kymograph
-    % Bin particles by x-position
-    n_bins = 50;
+    % Bin particles by x-position (use more bins for better k-resolution)
+    n_bins = 100;  % Increased from 50 for better spatial resolution
     x_edges = linspace(0, box_size(1), n_bins+1);
     x_centers = (x_edges(1:end-1) + x_edges(2:end)) / 2;
 
@@ -105,11 +105,12 @@ for i = 1:length(frequencies)
     kymograph_steady = kymograph(:, start_frame:end);
 
     % Spatial FFT at each time, then average
-    n_fft = 2^nextpow2(n_bins);
+    n_fft = 2^nextpow2(n_bins * 4);  % More padding for better resolution
     spatial_spectrum = zeros(n_fft, 1);
     for t = 1:size(kymograph_steady, 2)
         col = kymograph_steady(:, t);
-        col = col - mean(col);
+        col = col - mean(col);  % Remove DC
+        col = col .* hann(length(col));  % Window to reduce leakage
         spec = abs(fft(col, n_fft)).^2;
         spatial_spectrum = spatial_spectrum + spec;
     end
@@ -117,15 +118,59 @@ for i = 1:length(frequencies)
 
     % Frequency axis (spatial frequency)
     dx = box_size(1) / n_bins;
-    k_spatial = (0:n_fft-1) / (n_fft * dx) * 2 * pi;  % Convert to k = 2π/λ
+    k_spatial = (0:n_fft-1) / (n_fft * dx) * 2 * pi;  % k = 2π/λ
 
-    % Find dominant spatial frequency (excluding DC)
+    % Find dominant spatial frequency
+    % CRITICAL: Skip low-k values that correspond to box-size artifacts
+    % Minimum k corresponds to maximum wavelength of box_size/2
+    k_min = 2 * pi / (box_size(1) / 2);  % Max wavelength = half box size
+    k_max = 2 * pi / (lattice_constant * 2);  % Min wavelength = 2 lattice constants
+
     half = floor(n_fft/2);
-    [~, peak_idx] = max(spatial_spectrum(2:half));
-    peak_idx = peak_idx + 1;  % Adjust for skipping DC
+    valid_k = k_spatial(1:half) > k_min & k_spatial(1:half) < k_max;
+    valid_indices = find(valid_k);
 
-    k_measured = k_spatial(peak_idx);
-    wavelength = 2*pi / k_measured;
+    if ~isempty(valid_indices)
+        [~, rel_idx] = max(spatial_spectrum(valid_indices));
+        peak_idx = valid_indices(rel_idx);
+        k_measured = k_spatial(peak_idx);
+        wavelength = 2*pi / k_measured;
+    else
+        % Fallback: use temporal FFT to find wavelength from phase difference
+        % between near and far positions
+        fprintf('  Warning: No valid k peak found, using temporal method\n');
+
+        % Get displacement time series at two x positions
+        near_idx = find(x0 > 30 & x0 < 60);
+        far_idx = find(x0 > 200 & x0 < 230);
+
+        if ~isempty(near_idx) && ~isempty(far_idx)
+            u_near = mean(ux(near_idx, :), 1);
+            u_far = mean(ux(far_idx, :), 1);
+
+            % Cross-correlation to find time delay
+            [xcorr_result, lags] = xcorr(u_far, u_near, 'coeff');
+            [~, max_idx] = max(xcorr_result);
+            time_delay = lags(max_idx);  % In frames
+
+            % Distance between measurement points
+            dist = mean(x0(far_idx)) - mean(x0(near_idx));
+
+            % Phase velocity = distance / time_delay
+            if time_delay > 0
+                phase_velocity = dist / time_delay;  % pixels/frame
+                % wavelength = velocity / frequency
+                wavelength = phase_velocity / f;  % pixels
+                k_measured = 2*pi / wavelength;
+            else
+                wavelength = box_size(1);  % Fallback
+                k_measured = 2*pi / wavelength;
+            end
+        else
+            wavelength = box_size(1);  % Fallback
+            k_measured = 2*pi / wavelength;
+        end
+    end
 
     %% Measure amplitude decay
     % Compare amplitude near drive vs far from drive
