@@ -1,0 +1,29 @@
+# Ignore large simulation output files
+# Keep .mat files (data) but ignore images
+
+# Simulation image outputs (PNG files in simulation folders)
+sinusoidal_*/0*.png
+sinusoidal_*/*.png
+PhononSims/**/*.png
+strongimpulse*/*.png
+
+# Any plist images
+**/plist_*.png
+
+# Large video files
+*.avi
+*.mp4
+*.mov
+
+# MATLAB temporary files
+*.asv
+*.m~
+*.autosave
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keep analysis results (they're smaller)
+# !phonon_results/*.png
+# !dispersion_results/*.png
