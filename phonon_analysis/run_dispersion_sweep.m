@@ -71,7 +71,43 @@ results.frequencies = frequencies;
 results.wavelengths = zeros(size(frequencies));
 results.amplitudes = zeros(size(frequencies));
 
+%% Pre-scan: Check which simulations are already complete
+fprintf('Checking for completed simulations...\n');
+completed_count = 0;
+pending_indices = [];
 for i = 1:length(frequencies)
+    drive_frequency = frequencies(i);
+    if strcmp(domain_style, 'zigzags')
+        sim_name = sprintf('sinusoidal_f%.4f_a%.1f', drive_frequency, drive_amplitude);
+    else
+        sim_name = sprintf('sinusoidal_f%.4f_a%.1f_%s', drive_frequency, drive_amplitude, domain_style);
+    end
+
+    % Check if COMPLETE (has plist.mat = finished saving)
+    plist_file = fullfile(sim_name, 'plist.mat');
+    if exist(plist_file, 'file')
+        fprintf('  [DONE] f=%.4f (%s)\n', drive_frequency, sim_name);
+        completed_count = completed_count + 1;
+    else
+        fprintf('  [TODO] f=%.4f\n', drive_frequency);
+        pending_indices(end+1) = i;
+    end
+end
+
+fprintf('\n%d/%d complete, %d remaining\n', completed_count, length(frequencies), length(pending_indices));
+if isempty(pending_indices)
+    fprintf('All simulations complete! Run analyze_dispersion_sweep.m\n');
+    return;
+end
+
+remaining_time = length(pending_indices) * 0.5;
+fprintf('Estimated time for remaining: %.1f hours\n', remaining_time);
+fprintf('Starting in 3 seconds... (Ctrl+C to cancel)\n');
+pause(3);
+
+%% Run pending simulations
+for idx = 1:length(pending_indices)
+    i = pending_indices(idx);
     drive_frequency = frequencies(i);
 
     % Calculate imaging schedule for this frequency
@@ -80,7 +116,7 @@ for i = 1:length(frequencies)
     image_freq_initial = max(1, round(frames_per_cycle / images_per_cycle));
 
     fprintf('\n----------------------------------------------\n');
-    fprintf('Running frequency %d/%d: f = %.4f\n', i, length(frequencies), drive_frequency);
+    fprintf('Running frequency %d/%d (pending %d/%d): f = %.4f\n', i, length(frequencies), idx, length(pending_indices), drive_frequency);
     fprintf('  Period: %d frames/cycle\n', frames_per_cycle);
     fprintf('  Initial phase: %d frames (%.0f cycles)\n', initial_phase_frames, num_initial_cycles);
     fprintf('  Image freq (initial): every %d frames\n', image_freq_initial);
@@ -94,11 +130,16 @@ for i = 1:length(frequencies)
         sim_name = sprintf('sinusoidal_f%.4f_a%.1f_%s', drive_frequency, drive_amplitude, domain_style);
     end
 
-    % Check if already exists
-    if exist(sim_name, 'dir')
-        fprintf('  Folder %s already exists - SKIPPING\n', sim_name);
-        fprintf('  (Delete folder to re-run)\n');
+    % Double-check not complete (in case of race condition)
+    if exist(fullfile(sim_name, 'plist.mat'), 'file')
+        fprintf('  Already complete - SKIPPING\n');
         continue;
+    end
+
+    % Clean up partial runs (folder exists but no plist.mat)
+    if exist(sim_name, 'dir')
+        fprintf('  Removing incomplete folder %s...\n', sim_name);
+        rmdir(sim_name, 's');
     end
 
     %% Initialize simulation
