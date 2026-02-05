@@ -6,10 +6,11 @@
 %   This gives one point on dispersion: ω = 2πf, k = 2π/λ
 %   By sweeping frequencies, we map the full ω(k) curve
 %
-% RECOMMENDATION:
-%   Start with f=0.01 (already done), then run this sweep
-%   Lower frequencies = longer wavelengths (easier to see)
-%   Higher frequencies = shorter wavelengths (may be attenuated)
+% IMAGE SAVING:
+%   - First few drive cycles: HIGH frequency saving (every few frames)
+%     -> Green title on images, to verify forcing is working
+%   - After initial cycles: LOW frequency saving (every 1000 frames)
+%     -> White title on images
 %
 % Author: Gerbode Lab
 % Date: 2026
@@ -18,8 +19,7 @@ clear; clc;
 
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
 
-% Frequencies to sweep (oscillations per data frame)
-% Range from slow to fast oscillations
+% Frequencies to sweep (oscillations per simulation frame)
 % Note: f=0.01 means 100 frames per oscillation cycle
 %       f=0.05 means 20 frames per oscillation cycle
 frequencies = [0.002, 0.005, 0.01, 0.02, 0.03, 0.05];
@@ -29,10 +29,18 @@ frequencies = [0.002, 0.005, 0.01, 0.02, 0.03, 0.05];
 
 % Common parameters for all simulations
 drive_amplitude = 2.0;       % Pixels
-drive_width = 25;            % Driven region width
-num_frames = 20000;          % Frames per simulation
-data_saving_frequency = 10;
-image_saving_frequency = 1000;
+drive_width = 25;            % Driven region width (pixels from left edge)
+num_frames = 20000;          % Total frames per simulation
+data_saving_frequency = 10;  % Save position data every N frames
+
+% IMAGE SAVING PARAMETERS
+num_initial_cycles = 3;              % Number of drive cycles to save at high frequency
+images_per_cycle = 10;               % Images per cycle during initial phase
+image_saving_frequency_late = 1000;  % Image frequency after initial cycles
+
+% DOMAIN STRUCTURE
+% Options: 'zigzags', 'stripes', 'random'
+domain_style = 'zigzags';
 
 % Crystal parameters
 sim_width = 500;
@@ -45,6 +53,8 @@ fprintf('==============================================\n');
 fprintf('   DISPERSION RELATION FREQUENCY SWEEP\n');
 fprintf('==============================================\n');
 fprintf('Frequencies to run: %s\n', mat2str(frequencies));
+fprintf('Domain structure: %s\n', domain_style);
+fprintf('Initial high-freq saving: %d cycles, %d images/cycle\n', num_initial_cycles, images_per_cycle);
 fprintf('Estimated total time: %.1f hours (assuming ~30min each)\n', length(frequencies)*0.5);
 fprintf('\n');
 
@@ -56,11 +66,25 @@ results.amplitudes = zeros(size(frequencies));
 for i = 1:length(frequencies)
     drive_frequency = frequencies(i);
 
+    % Calculate imaging schedule for this frequency
+    frames_per_cycle = round(1 / drive_frequency);  % Frames for one complete oscillation
+    initial_phase_frames = num_initial_cycles * frames_per_cycle;
+    image_freq_initial = max(1, round(frames_per_cycle / images_per_cycle));
+
     fprintf('\n----------------------------------------------\n');
     fprintf('Running frequency %d/%d: f = %.4f\n', i, length(frequencies), drive_frequency);
+    fprintf('  Period: %d frames/cycle\n', frames_per_cycle);
+    fprintf('  Initial phase: %d frames (%.0f cycles)\n', initial_phase_frames, num_initial_cycles);
+    fprintf('  Image freq (initial): every %d frames\n', image_freq_initial);
+    fprintf('  Image freq (late): every %d frames\n', image_saving_frequency_late);
     fprintf('----------------------------------------------\n');
 
-    sim_name = sprintf('sinusoidal_f%.4f_a%.1f', drive_frequency, drive_amplitude);
+    % Build simulation name including domain style
+    if strcmp(domain_style, 'zigzags')
+        sim_name = sprintf('sinusoidal_f%.4f_a%.1f', drive_frequency, drive_amplitude);
+    else
+        sim_name = sprintf('sinusoidal_f%.4f_a%.1f_%s', drive_frequency, drive_amplitude, domain_style);
+    end
 
     % Check if already exists
     if exist(sim_name, 'dir')
@@ -76,11 +100,17 @@ for i = 1:length(frequencies)
     sim.looseness = looseness;
     sim.zmax = zmax;
     sim.data_saving_frequency = data_saving_frequency;
-    sim.image_saving_frequency = image_saving_frequency;
+    sim.image_saving_frequency = image_saving_frequency_late;  % Default (overridden below)
     sim.num_frames = num_frames;
 
-    % Initialize crystal
-    sim.initialize_grains_unfrust('zigzags');
+    % Initialize crystal with specified domain structure
+    if strcmp(domain_style, 'random')
+        sim.initialize_grains_unfrust('random');
+    elseif strcmp(domain_style, 'stripes')
+        sim.initialize_grains_unfrust('stripes');
+    else
+        sim.initialize_grains_unfrust('zigzags');
+    end
 
     % Identify driven particles
     driven_indices = sim.initial_particles(:,1) < drive_width;
@@ -126,7 +156,7 @@ for i = 1:length(frequencies)
             particlesFromNeighborList = sim.current_particles;
         end
 
-        % Save data
+        % Save position data
         if mod(frame, data_saving_frequency) == 0
             data_frame = frame / data_saving_frequency;
             idx_start = (plist_row - 1) * num_particles + 1;
@@ -134,6 +164,61 @@ for i = 1:length(frequencies)
             plist(idx_start:idx_end, :) = [sim.current_particles(:,1:3), ...
                                             data_frame * ones(num_particles, 1)];
             plist_row = plist_row + 1;
+        end
+
+        %% IMAGE SAVING with two regimes
+        save_image = false;
+        is_initial_phase = (frame <= initial_phase_frames);
+
+        if is_initial_phase
+            % HIGH frequency saving during initial cycles
+            if mod(frame, image_freq_initial) == 0
+                save_image = true;
+            end
+        else
+            % LOW frequency saving after initial cycles
+            if mod(frame, image_saving_frequency_late) == 0
+                save_image = true;
+            end
+        end
+
+        if save_image
+            % Calculate time info
+            cycle_number = frame / frames_per_cycle;
+            phase_in_cycle = mod(frame, frames_per_cycle) / frames_per_cycle * 360;  % degrees
+            current_drive_pos = drive_phase;
+
+            % Create filename with time info
+            filename_base = sprintf('%06d_cyc%.2f_phase%03.0f', frame, cycle_number, phase_in_cycle);
+
+            % Generate image
+            img = sim.makeSpinImage(sim.current_particles(:,1:3), ' ');  % Don't save yet
+
+            % Add title with time info
+            fig = figure('Visible', 'off', 'Position', [100 100 800 500]);
+            imshow(img);
+            hold on;
+
+            % Title color: GREEN for initial phase, WHITE for late phase
+            if is_initial_phase
+                title_color = [0 0.8 0];  % Green
+                phase_label = 'INITIAL (verifying drive)';
+            else
+                title_color = [1 1 1];    % White
+                phase_label = 'LATE';
+            end
+
+            title_str = sprintf('f=%.4f | Frame %d | Cycle %.2f | Phase %.0f° | Drive: %.2f px | %s', ...
+                drive_frequency, frame, cycle_number, phase_in_cycle, current_drive_pos, phase_label);
+            title(title_str, 'Color', title_color, 'FontSize', 12, 'FontWeight', 'bold');
+
+            % Mark driven region with a line
+            plot([drive_width drive_width], [0 sim_height], 'g--', 'LineWidth', 2);
+            text(drive_width + 5, 20, 'Driven boundary', 'Color', 'g', 'FontSize', 10);
+
+            % Save
+            saveas(fig, fullfile(sim_name, [filename_base '.png']));
+            close(fig);
         end
 
         % Progress update
@@ -161,6 +246,9 @@ for i = 1:length(frequencies)
     sim_params.zmax = zmax;
     sim_params.num_frames = num_frames;
     sim_params.data_saving_frequency = data_saving_frequency;
+    sim_params.domain_style = domain_style;
+    sim_params.frames_per_cycle = frames_per_cycle;
+    sim_params.initial_phase_frames = initial_phase_frames;
 
     save(fullfile(sim_name, 'sim_params.mat'), 'sim_params');
     save(fullfile(sim_name, 'sim.mat'), 'sim');
