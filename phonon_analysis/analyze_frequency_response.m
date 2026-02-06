@@ -137,7 +137,7 @@ for f_idx = 1:n_freqs
 end
 
 %% Create Bode Plots
-figure('Position', [100, 100, 1400, 900], 'Name', 'Frequency Response Analysis');
+fig1 = figure('Position', [100, 100, 1400, 900], 'Name', 'Frequency Response Analysis');
 
 % Color map for different positions
 colors = parula(n_positions);
@@ -220,7 +220,7 @@ ylim([0, 1.1]);
 sgtitle('Bode Plot - Phonon Frequency Response', 'FontSize', 14, 'FontWeight', 'bold');
 
 %% Figure 2: Attenuation vs Distance
-figure('Position', [150, 150, 1200, 500], 'Name', 'Spatial Attenuation');
+fig2 = figure('Position', [150, 150, 1200, 500], 'Name', 'Spatial Attenuation');
 
 % Select subset of frequencies for clarity
 freq_subset_idx = round(linspace(1, n_freqs, min(8, n_freqs)));
@@ -264,7 +264,7 @@ grid on;
 sgtitle('Spatial Dependence of Frequency Response', 'FontSize', 14, 'FontWeight', 'bold');
 
 %% Figure 3: Attenuation Length vs Frequency
-figure('Position', [200, 200, 600, 500], 'Name', 'Attenuation Length');
+fig3 = figure('Position', [200, 200, 600, 500], 'Name', 'Attenuation Length');
 
 % Fit exponential decay to get attenuation length at each frequency
 attenuation_lengths = nan(n_freqs, 1);
@@ -323,6 +323,16 @@ if ~exist(analysis_folder, 'dir')
 end
 save(fullfile(analysis_folder, 'frequency_response_results.mat'), 'results');
 fprintf('\nResults saved to %s\n', fullfile(analysis_folder, 'frequency_response_results.mat'));
+
+% Save figures (both .fig and .png)
+fprintf('Saving figures...\n');
+savefig(fig1, fullfile(analysis_folder, 'bode_plot.fig'));
+saveas(fig1, fullfile(analysis_folder, 'bode_plot.png'));
+savefig(fig2, fullfile(analysis_folder, 'spatial_attenuation.fig'));
+saveas(fig2, fullfile(analysis_folder, 'spatial_attenuation.png'));
+savefig(fig3, fullfile(analysis_folder, 'attenuation_length.fig'));
+saveas(fig3, fullfile(analysis_folder, 'attenuation_length.png'));
+fprintf('Figures saved to: %s\n', analysis_folder);
 
 %% Print summary table
 fprintf('\n=== Frequency Response Summary ===\n');
