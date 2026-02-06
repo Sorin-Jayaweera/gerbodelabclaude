@@ -18,8 +18,8 @@ clear; close all; clc;
 % Modify these parameters for your analysis
 
 % --- Path Setup ---
-% Base path to simulation data (inside the git repo)
-sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\PhononSims';
+% Base path to batch simulation folder
+sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
 
 % --- Simulation Info ---
 % Sinusoidal driving simulation for dispersion measurement

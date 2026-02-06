@@ -10,7 +10,9 @@
 clear; close all;
 
 %% Configuration
-sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\PhononSims';
+% Path to batch simulation folder
+batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
+sim_base_path = batch_folder;
 
 % Frequencies (must match run_dispersion_sweep.m)
 frequencies = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, ...
@@ -309,8 +311,13 @@ results.coherence = coherence;
 results.attenuation_lengths = attenuation_lengths;
 results.box_size = box_size;
 
-save(fullfile(sim_base_path, 'frequency_response_results.mat'), 'results');
-fprintf('\nResults saved to frequency_response_results.mat\n');
+% Save to analysis subfolder
+analysis_folder = fullfile(batch_folder, 'analysis');
+if ~exist(analysis_folder, 'dir')
+    mkdir(analysis_folder);
+end
+save(fullfile(analysis_folder, 'frequency_response_results.mat'), 'results');
+fprintf('\nResults saved to %s\n', fullfile(analysis_folder, 'frequency_response_results.mat'));
 
 %% Print summary table
 fprintf('\n=== Frequency Response Summary ===\n');

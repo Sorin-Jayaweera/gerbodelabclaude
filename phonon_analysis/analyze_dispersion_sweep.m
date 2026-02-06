@@ -14,8 +14,11 @@ clear; close all; clc;
 
 %% ==================== CONFIGURATION ====================
 
-% Path to simulations (inside the git repo)
-sim_base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\PhononSims';
+% Path to batch simulation folder
+batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
+
+% Simulations are inside batch_folder (each sinusoidal_f*_a* folder)
+sim_base_path = batch_folder;
 
 % Frequencies that were run (should match run_dispersion_sweep.m)
 % EXPANDED list for dense dispersion curve - 20 frequencies for ~10 hour run
@@ -32,8 +35,8 @@ lattice_constant = particle_diameter * looseness;
 % Box size
 box_size = [500, 300];
 
-% Output
-output_folder = 'dispersion_results';
+% Output - save analysis results in the batch folder
+output_folder = fullfile(batch_folder, 'analysis');
 if ~exist(output_folder, 'dir')
     mkdir(output_folder);
 end
