@@ -32,15 +32,14 @@ analysis_folder = fullfile(batch_folder, 'analysis');
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
 
 % Frequencies to sweep (oscillations per simulation frame)
-% FULL OVERNIGHT RUN - 20 frequencies for dense dispersion curve (~10 hours)
+% EXPANDED with LOWER frequencies for longer wavelength modes
 % Note: f=0.01 means 100 frames per oscillation cycle
-%       f=0.05 means 20 frames per oscillation cycle
-%       Lower f = longer wavelength, easier to measure
-%       Higher f = shorter wavelength, more attenuation
+%       f=0.001 means 1000 frames per cycle
+%       f=0.0005 means 2000 frames per cycle (very slow!)
+%       Lower f = longer wavelength, clearer wave propagation
 
-frequencies = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, ...
-               0.012, 0.015, 0.018, 0.02, 0.025, 0.03, 0.04, 0.05, ...
-               0.06, 0.07, 0.08, 0.10];
+frequencies = [0.0003, 0.0005, 0.0007, 0.001, 0.0015, 0.002, 0.003, 0.005, ...
+               0.007, 0.01, 0.015, 0.02, 0.03, 0.05, 0.07, 0.10];
 
 % 20 frequencies × ~30 min each = ~10 hours
 % DELETE existing simulation folders to re-run all
@@ -127,7 +126,7 @@ results.wavelengths = zeros(size(frequencies));
 results.amplitudes = zeros(size(frequencies));
 
 %% Pre-scan: Check which simulations are already complete
-fprintf('Checking for completed simulations...\n');
+fprintf('Checking for completed simulations in: %s\n', simulations_folder);
 completed_count = 0;
 pending_indices = [];
 for i = 1:length(frequencies)
@@ -138,8 +137,9 @@ for i = 1:length(frequencies)
         sim_name = sprintf('sinusoidal_f%.4f_a%.1f_%s', drive_frequency, drive_amplitude, domain_style);
     end
 
-    % Check if COMPLETE (has plist.mat = finished saving)
-    plist_file = fullfile(sim_name, 'plist.mat');
+    % Check if COMPLETE (has plist.mat = finished saving) - USE FULL PATH
+    sim_full_path = fullfile(simulations_folder, sim_name);
+    plist_file = fullfile(sim_full_path, 'plist.mat');
     if exist(plist_file, 'file')
         fprintf('  [DONE] f=%.4f (%s)\n', drive_frequency, sim_name);
         completed_count = completed_count + 1;
@@ -178,23 +178,24 @@ for idx = 1:length(pending_indices)
     fprintf('  Image freq (late): every %d frames\n', image_saving_frequency_late);
     fprintf('----------------------------------------------\n');
 
-    % Build simulation name including domain style
+    % Build simulation name and FULL PATH including domain style
     if strcmp(domain_style, 'zigzags')
         sim_name = sprintf('sinusoidal_f%.4f_a%.1f', drive_frequency, drive_amplitude);
     else
         sim_name = sprintf('sinusoidal_f%.4f_a%.1f_%s', drive_frequency, drive_amplitude, domain_style);
     end
+    sim_full_path = fullfile(simulations_folder, sim_name);  % SAVE TO SIMULATIONS FOLDER
 
     % Double-check not complete (in case of race condition)
-    if exist(fullfile(sim_name, 'plist.mat'), 'file')
+    if exist(fullfile(sim_full_path, 'plist.mat'), 'file')
         fprintf('  Already complete - SKIPPING\n');
         continue;
     end
 
     % Clean up partial runs (folder exists but no plist.mat)
-    if exist(sim_name, 'dir')
+    if exist(sim_full_path, 'dir')
         fprintf('  Removing incomplete folder %s...\n', sim_name);
-        rmdir(sim_name, 's');
+        rmdir(sim_full_path, 's');
     end
 
     %% Initialize simulation
@@ -224,7 +225,7 @@ for idx = 1:length(pending_indices)
     fprintf('  Particles: %d total, %d driven\n', num_particles, sum(driven_indices));
 
     % Create output folder
-    mkdir(sim_name);
+    mkdir(sim_full_path);
 
     % Initialize storage
     total_data_frames = floor(num_frames / data_saving_frequency);
@@ -326,7 +327,7 @@ for idx = 1:length(pending_indices)
             text(drive_width + 5, 20, 'Driven boundary', 'Color', 'g', 'FontSize', 10);
 
             % Save
-            saveas(fig, fullfile(sim_name, [filename_base '.png']));
+            saveas(fig, fullfile(sim_full_path, [filename_base '.png']));
             close(fig);
         end
 
@@ -341,7 +342,7 @@ for idx = 1:length(pending_indices)
 
     %% Save results
     plist = plist(1:(plist_row-1)*num_particles, :);
-    save(fullfile(sim_name, 'plist.mat'), 'plist', '-v7.3');
+    save(fullfile(sim_full_path, 'plist.mat'), 'plist', '-v7.3');
 
     sim_params = struct();
     sim_params.drive_frequency = drive_frequency;
@@ -359,11 +360,11 @@ for idx = 1:length(pending_indices)
     sim_params.frames_per_cycle = frames_per_cycle;
     sim_params.initial_phase_frames = initial_phase_frames;
 
-    save(fullfile(sim_name, 'sim_params.mat'), 'sim_params');
-    save(fullfile(sim_name, 'sim.mat'), 'sim');
+    save(fullfile(sim_full_path, 'sim_params.mat'), 'sim_params');
+    save(fullfile(sim_full_path, 'sim.mat'), 'sim');
 
     fprintf('  Completed in %.1f minutes\n', toc/60);
-    fprintf('  Saved to: %s\n', sim_name);
+    fprintf('  Saved to: %s\n', sim_full_path);
 end
 
 fprintf('\n==============================================\n');
