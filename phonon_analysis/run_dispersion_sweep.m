@@ -17,6 +17,18 @@
 
 clear; clc;
 
+%% ==================== BATCH FOLDER SETUP ====================
+% All simulations for this batch go into a named folder with:
+%   - simulations/  (contains each sinusoidal_f*_a* subfolder)
+%   - analysis/     (for results from analyze_dispersion_sweep.m)
+%   - description.txt (auto-generated setup documentation)
+
+batch_name = 'drivensinesims';  % Name of this batch experiment
+batch_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+batch_folder = fullfile(batch_base, batch_name);
+simulations_folder = fullfile(batch_folder, 'simulations');
+analysis_folder = fullfile(batch_folder, 'analysis');
+
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
 
 % Frequencies to sweep (oscillations per simulation frame)
@@ -31,9 +43,7 @@ frequencies = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, ...
                0.06, 0.07, 0.08, 0.10];
 
 % 20 frequencies × ~30 min each = ~10 hours
-% DELETE existing folders to re-run all:
-%   In MATLAB: rmdir('sinusoidal_*', 's')  OR
-%   Delete folders manually in Windows Explorer
+% DELETE existing simulation folders to re-run all
 
 % Common parameters for all simulations
 drive_amplitude = 2.0;       % Pixels
@@ -55,6 +65,48 @@ sim_width = 500;
 sim_height = 300;
 looseness = 1.06;
 zmax = 0.45;
+
+%% ==================== CREATE BATCH FOLDER STRUCTURE ====================
+if ~exist(batch_folder, 'dir')
+    mkdir(batch_folder);
+end
+if ~exist(simulations_folder, 'dir')
+    mkdir(simulations_folder);
+end
+if ~exist(analysis_folder, 'dir')
+    mkdir(analysis_folder);
+end
+
+% Write description file
+description_file = fullfile(batch_folder, 'description.txt');
+fid = fopen(description_file, 'w');
+fprintf(fid, 'BATCH SIMULATION: %s\n', batch_name);
+fprintf(fid, '==========================================\n\n');
+fprintf(fid, 'PURPOSE:\n');
+fprintf(fid, '  Sinusoidal boundary driving at multiple frequencies to measure\n');
+fprintf(fid, '  phonon dispersion relation omega(k) in colloidal crystal.\n\n');
+fprintf(fid, 'DRIVING PARAMETERS:\n');
+fprintf(fid, '  Drive amplitude: %.1f pixels\n', drive_amplitude);
+fprintf(fid, '  Drive width: %d pixels from left edge\n', drive_width);
+fprintf(fid, '  Frequencies: %s\n', mat2str(frequencies, 4));
+fprintf(fid, '  Number of frequencies: %d\n\n', length(frequencies));
+fprintf(fid, 'CRYSTAL PARAMETERS:\n');
+fprintf(fid, '  Domain style: %s\n', domain_style);
+fprintf(fid, '  Simulation size: %d x %d pixels\n', sim_width, sim_height);
+fprintf(fid, '  Looseness: %.3f\n', looseness);
+fprintf(fid, '  Zmax: %.3f\n\n', zmax);
+fprintf(fid, 'SIMULATION PARAMETERS:\n');
+fprintf(fid, '  Total frames per frequency: %d\n', num_frames);
+fprintf(fid, '  Data saving frequency: every %d frames\n', data_saving_frequency);
+fprintf(fid, '  Initial high-freq image saving: %d cycles, %d images/cycle\n', num_initial_cycles, images_per_cycle);
+fprintf(fid, '  Late image saving: every %d frames\n\n', image_saving_frequency_late);
+fprintf(fid, 'FOLDER STRUCTURE:\n');
+fprintf(fid, '  simulations/   - Raw simulation output (.mat, images)\n');
+fprintf(fid, '  analysis/      - Analysis results and figures\n\n');
+fprintf(fid, 'DATE STARTED: %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
+fclose(fid);
+fprintf('Batch folder: %s\n', batch_folder);
+fprintf('Description written to: description.txt\n\n');
 
 %% ==================== RUN SWEEP ====================
 fprintf('==============================================\n');

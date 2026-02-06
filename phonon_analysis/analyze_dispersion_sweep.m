@@ -20,11 +20,23 @@ batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivens
 % Simulations are inside batch_folder (each sinusoidal_f*_a* folder)
 sim_base_path = batch_folder;
 
-% Frequencies that were run (should match run_dispersion_sweep.m)
-% EXPANDED list for dense dispersion curve - 20 frequencies for ~10 hour run
-frequencies = [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, ...
-               0.012, 0.015, 0.018, 0.02, 0.025, 0.03, 0.04, 0.05, ...
-               0.06, 0.07, 0.08, 0.10];
+% AUTO-DETECT available simulations from folder names
+sim_dirs = dir(fullfile(sim_base_path, 'sinusoidal_f*_a*.0'));
+frequencies = [];
+for i = 1:length(sim_dirs)
+    tokens = regexp(sim_dirs(i).name, 'sinusoidal_f([\d.]+)_a', 'tokens');
+    if ~isempty(tokens)
+        f = str2double(tokens{1}{1});
+        % Check if complete (has plist.mat)
+        if exist(fullfile(sim_base_path, sim_dirs(i).name, 'plist.mat'), 'file')
+            frequencies(end+1) = f;
+        end
+    end
+end
+frequencies = sort(frequencies);
+fprintf('Auto-detected %d completed simulations\n', length(frequencies));
+fprintf('Frequencies: %s\n', mat2str(frequencies, 4));
+
 drive_amplitude = 2.0;
 
 % Physical parameters
