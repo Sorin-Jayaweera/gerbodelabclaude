@@ -106,7 +106,8 @@ setappdata(fig, 'n_panels', n_panels);
 setappdata(fig, 'min_frames', min_frames);
 setappdata(fig, 'current_frame', 1);
 setappdata(fig, 'playing', false);
-setappdata(fig, 'speed', 3);
+setappdata(fig, 'speed', 1);  % Start slow (1 frame per tick)
+setappdata(fig, 'frame_accumulator', 0);  % For fractional speeds
 setappdata(fig, 'grid_rows', grid_rows);
 setappdata(fig, 'grid_cols', grid_cols);
 setappdata(fig, 'batch_folder', batch_folder);
@@ -198,14 +199,22 @@ function animateStep(fig)
     current = getappdata(fig, 'current_frame');
     speed = getappdata(fig, 'speed');
     min_frames = getappdata(fig, 'min_frames');
+    accumulator = getappdata(fig, 'frame_accumulator');
 
-    new_frame = current + speed;
-    if new_frame > min_frames
-        new_frame = 1;
+    % Accumulator allows fractional speeds (e.g., 0.5 = advance 1 frame every 2 ticks)
+    accumulator = accumulator + speed;
+    frames_to_advance = floor(accumulator);
+    accumulator = accumulator - frames_to_advance;
+    setappdata(fig, 'frame_accumulator', accumulator);
+
+    if frames_to_advance > 0
+        new_frame = current + frames_to_advance;
+        if new_frame > min_frames
+            new_frame = 1;
+        end
+        setappdata(fig, 'current_frame', new_frame);
+        updateDisplay(fig);
     end
-
-    setappdata(fig, 'current_frame', new_frame);
-    updateDisplay(fig);
 end
 
 function updateDisplay(fig)
@@ -229,7 +238,8 @@ function updateDisplay(fig)
         set(drive_markers{p}, 'YData', drive_phase);
     end
 
-    set(frame_text, 'String', sprintf('Frame: %d / %d', current, min_frames));
+    speed = getappdata(fig, 'speed');
+    set(frame_text, 'String', sprintf('Frame: %d / %d | Speed: %.2f', current, min_frames, speed));
     drawnow limitrate;
 end
 
@@ -258,12 +268,26 @@ function keyCallback(fig, event)
             updateDisplay(fig);
 
         case 'uparrow'
-            setappdata(fig, 'speed', min(speed + 2, 30));
-            fprintf('Speed: %d\n', getappdata(fig, 'speed'));
+            % Increase speed (can go very fast)
+            if speed < 1
+                speed = speed * 2;  % 0.1 -> 0.2 -> 0.5 -> 1
+            else
+                speed = speed + 1;  % 1 -> 2 -> 3 ...
+            end
+            speed = min(speed, 50);
+            setappdata(fig, 'speed', speed);
+            fprintf('Speed: %.2f frames/tick\n', speed);
 
         case 'downarrow'
-            setappdata(fig, 'speed', max(speed - 2, 1));
-            fprintf('Speed: %d\n', getappdata(fig, 'speed'));
+            % Decrease speed (can go very slow - 0.1 = 1 frame every 10 ticks)
+            if speed <= 1
+                speed = speed / 2;  % 1 -> 0.5 -> 0.25 -> 0.1
+                speed = max(speed, 0.1);
+            else
+                speed = speed - 1;
+            end
+            setappdata(fig, 'speed', speed);
+            fprintf('Speed: %.2f frames/tick\n', speed);
 
         case 'r'
             setappdata(fig, 'current_frame', 1);

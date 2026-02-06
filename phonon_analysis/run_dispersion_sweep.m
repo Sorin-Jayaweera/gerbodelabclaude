@@ -52,9 +52,12 @@ num_frames = 20000;          % Total frames per simulation
 data_saving_frequency = 10;  % Save position data every N frames
 
 % IMAGE SAVING PARAMETERS
-num_initial_cycles = 3;              % Number of drive cycles to save at high frequency
-images_per_cycle = 10;               % Images per cycle during initial phase
-image_saving_frequency_late = 1000;  % Image frequency after initial cycles
+% Set high_freq_images_throughout = true to save images at high rate for entire sim
+% WARNING: This creates MANY more images but allows detailed animation viewing
+high_freq_images_throughout = true;   % <<< SET TO TRUE FOR DETAILED MOVIES
+num_initial_cycles = 3;               % Number of drive cycles to save at high frequency (if not throughout)
+images_per_cycle = 10;                % Images per cycle
+image_saving_frequency_late = 1000;   % Image frequency after initial cycles (ignored if high_freq_throughout)
 
 % DOMAIN STRUCTURE
 % Options: 'zigzags', 'stripes', 'random'
@@ -267,12 +270,17 @@ for idx = 1:length(pending_indices)
             plist_row = plist_row + 1;
         end
 
-        %% IMAGE SAVING with two regimes
+        %% IMAGE SAVING
         save_image = false;
         is_initial_phase = (frame <= initial_phase_frames);
 
-        if is_initial_phase
-            % HIGH frequency saving during initial cycles
+        if high_freq_images_throughout
+            % HIGH frequency saving throughout entire simulation
+            if mod(frame, image_freq_initial) == 0
+                save_image = true;
+            end
+        elseif is_initial_phase
+            % HIGH frequency saving during initial cycles only
             if mod(frame, image_freq_initial) == 0
                 save_image = true;
             end

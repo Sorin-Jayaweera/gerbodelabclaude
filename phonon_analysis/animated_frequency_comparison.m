@@ -1,11 +1,12 @@
-%% Animated Multi-Frequency Comparison
-% Shows multiple simulations side-by-side, animated together
-% Compare wave propagation, reflections, and attenuation across frequencies
+%% Animated Multi-Frequency Kymograph Comparison
+% Shows ZOOMED sliding window of kymographs for multiple frequencies
+% Much better for seeing wave dynamics than full plot with moving bar
 %
 % Controls:
 %   Space: Play/Pause
 %   Left/Right arrows: Step frame by frame
 %   Up/Down arrows: Change playback speed
+%   [ / ]: Decrease/increase window width
 %   R: Reset to beginning
 %   S: Save current frame as PNG
 
@@ -21,12 +22,14 @@ else
     sim_base_path = batch_folder;
 end
 
-% Select frequencies to compare (choose a range from low to high)
-% These will be displayed in a grid
-target_freqs = [0.002, 0.005, 0.01, 0.02, 0.04, 0.08];  % 6 frequencies
+% Select frequencies to compare (low to high)
+target_freqs = [0.002, 0.005, 0.01, 0.02, 0.04, 0.08];
 n_panels = length(target_freqs);
 grid_rows = 2;
 grid_cols = 3;
+
+% Sliding window settings
+window_width = 200;  % frames to show at once
 
 %% Find and load simulations
 fprintf('Loading simulations...\n');
@@ -94,10 +97,10 @@ for p = 1:n_panels
     kymographs{p} = kymo;
 end
 
-fprintf('Done loading. Min frames across all: %d\n', min_frames);
+fprintf('Done loading. Min frames: %d\n', min_frames);
 
 %% Create figure
-fig = figure('Name', 'Multi-Frequency Wave Comparison', ...
+fig = figure('Name', 'Zoomed Kymograph Comparison', ...
     'Position', [50, 50, 1600, 900], ...
     'Color', 'k', ...
     'KeyPressFcn', @keyCallback);
@@ -110,38 +113,36 @@ setappdata(fig, 'n_bins', n_bins);
 setappdata(fig, 'min_frames', min_frames);
 setappdata(fig, 'current_frame', 1);
 setappdata(fig, 'playing', false);
-setappdata(fig, 'speed', 5);  % frames per update
+setappdata(fig, 'speed', 1);  % Start slow
+setappdata(fig, 'window_width', window_width);
 setappdata(fig, 'box_size', box_size);
 setappdata(fig, 'grid_rows', grid_rows);
 setappdata(fig, 'grid_cols', grid_cols);
 setappdata(fig, 'batch_folder', batch_folder);
 
-% Create subplots
+% Create subplots with image handles
 axes_handles = cell(n_panels, 1);
 image_handles = cell(n_panels, 1);
-line_handles = cell(n_panels, 1);
 
 x_axis = linspace(0, box_size(1), n_bins);
 
 for p = 1:n_panels
     axes_handles{p} = subplot(grid_rows, grid_cols, p);
 
-    % Initial image (first frame column highlighted)
+    % Initial zoomed window
     kymo = kymographs{p};
-    image_handles{p} = imagesc(1:size(kymo,2), x_axis, kymo);
-    colormap(axes_handles{p}, redblue(256));
-    caxis([-1.5, 1.5]);
-    set(axes_handles{p}, 'YDir', 'normal');
+    t_start = 1;
+    t_end = min(window_width, size(kymo, 2));
 
-    % Current time indicator (vertical line)
-    hold on;
-    line_handles{p} = plot([1 1], [0 box_size(1)], 'g-', 'LineWidth', 2);
-    hold off;
+    image_handles{p} = imagesc(t_start:t_end, x_axis, kymo(:, t_start:t_end));
+    colormap(axes_handles{p}, redblue(256));
+    caxis([-2, 2]);
+    set(axes_handles{p}, 'YDir', 'normal');
 
     % Labels
     period = round(1/selected_freqs(p));
-    title(sprintf('f = %.4f (T = %d frames)', selected_freqs(p), period), ...
-        'Color', 'w', 'FontSize', 12);
+    title(sprintf('f = %.4f (T=%d)', selected_freqs(p), period), ...
+        'Color', 'w', 'FontSize', 11, 'FontWeight', 'bold');
     xlabel('Frame', 'Color', 'w');
     if mod(p-1, grid_cols) == 0
         ylabel('X position (px)', 'Color', 'w');
@@ -151,21 +152,21 @@ for p = 1:n_panels
 end
 
 setappdata(fig, 'axes_handles', axes_handles);
-setappdata(fig, 'line_handles', line_handles);
+setappdata(fig, 'image_handles', image_handles);
 
 % Info text
-info_text = uicontrol('Style', 'text', ...
-    'Position', [10, 10, 600, 25], ...
-    'String', 'Space=Play/Pause | Arrows=Step | Up/Down=Speed | R=Reset | S=Save', ...
+uicontrol('Style', 'text', ...
+    'Position', [10, 10, 700, 25], ...
+    'String', 'Space=Play/Pause | ←→=Step | ↑↓=Speed | [ ]=WindowSize | R=Reset | S=Save', ...
     'FontSize', 10, ...
     'BackgroundColor', 'k', ...
     'ForegroundColor', 'w', ...
     'HorizontalAlignment', 'left');
 
 frame_text = uicontrol('Style', 'text', ...
-    'Position', [1400, 10, 180, 25], ...
-    'String', 'Frame: 1', ...
-    'FontSize', 12, ...
+    'Position', [1300, 10, 280, 25], ...
+    'String', 'Frame: 1 | Speed: 1 | Window: 200', ...
+    'FontSize', 11, ...
     'BackgroundColor', 'k', ...
     'ForegroundColor', 'g', ...
     'HorizontalAlignment', 'right');
@@ -181,14 +182,12 @@ setappdata(fig, 'timer', t);
 set(fig, 'CloseRequestFcn', @(~,~) cleanupFig(fig));
 
 fprintf('\n=== CONTROLS ===\n');
-fprintf('  Space: Play/Pause animation\n');
-fprintf('  Left/Right: Step backward/forward\n');
-fprintf('  Up/Down: Increase/decrease speed\n');
-fprintf('  R: Reset to frame 1\n');
-fprintf('  S: Save current frame as PNG\n');
-fprintf('\nObserve:\n');
-fprintf('  - Low freq (left): Coherent waves, clear propagation\n');
-fprintf('  - High freq (right): Rapid attenuation, reflections, interference\n');
+fprintf('  Space: Play/Pause\n');
+fprintf('  ←/→: Step frames\n');
+fprintf('  ↑/↓: Faster/slower\n');
+fprintf('  [ / ]: Smaller/larger window\n');
+fprintf('  R: Reset\n');
+fprintf('  S: Save screenshot\n');
 
 %% Animation functions
 function animateStep(fig)
@@ -204,9 +203,10 @@ function animateStep(fig)
     current = getappdata(fig, 'current_frame');
     speed = getappdata(fig, 'speed');
     min_frames = getappdata(fig, 'min_frames');
+    window_width = getappdata(fig, 'window_width');
 
     new_frame = current + speed;
-    if new_frame > min_frames
+    if new_frame > min_frames - window_width
         new_frame = 1;  % Loop
     end
 
@@ -216,18 +216,29 @@ end
 
 function updateDisplay(fig)
     current = getappdata(fig, 'current_frame');
-    line_handles = getappdata(fig, 'line_handles');
+    kymographs = getappdata(fig, 'kymographs');
+    image_handles = getappdata(fig, 'image_handles');
+    axes_handles = getappdata(fig, 'axes_handles');
     frame_text = getappdata(fig, 'frame_text');
     n_panels = getappdata(fig, 'n_panels');
-    box_size = getappdata(fig, 'box_size');
+    window_width = getappdata(fig, 'window_width');
+    speed = getappdata(fig, 'speed');
+    min_frames = getappdata(fig, 'min_frames');
 
-    % Update time indicator lines
+    t_start = current;
+    t_end = min(current + window_width - 1, min_frames);
+
+    % Update each panel
     for p = 1:n_panels
-        set(line_handles{p}, 'XData', [current current]);
+        kymo = kymographs{p};
+        set(image_handles{p}, 'CData', kymo(:, t_start:t_end), ...
+            'XData', t_start:t_end);
+        xlim(axes_handles{p}, [t_start, t_end]);
     end
 
-    % Update frame counter
-    set(frame_text, 'String', sprintf('Frame: %d', current));
+    % Update info
+    set(frame_text, 'String', sprintf('Frame: %d-%d | Speed: %d | Window: %d', ...
+        t_start, t_end, speed, window_width));
 
     drawnow limitrate;
 end
@@ -237,11 +248,11 @@ function keyCallback(fig, event)
     min_frames = getappdata(fig, 'min_frames');
     speed = getappdata(fig, 'speed');
     playing = getappdata(fig, 'playing');
+    window_width = getappdata(fig, 'window_width');
     t = getappdata(fig, 'timer');
 
     switch event.Key
         case 'space'
-            % Toggle play/pause
             playing = ~playing;
             setappdata(fig, 'playing', playing);
             if playing
@@ -251,39 +262,43 @@ function keyCallback(fig, event)
             end
 
         case 'rightarrow'
-            % Step forward
-            new_frame = min(current + max(1, speed), min_frames);
+            new_frame = min(current + max(1, speed), min_frames - window_width);
             setappdata(fig, 'current_frame', new_frame);
             updateDisplay(fig);
 
         case 'leftarrow'
-            % Step backward
             new_frame = max(current - max(1, speed), 1);
             setappdata(fig, 'current_frame', new_frame);
             updateDisplay(fig);
 
         case 'uparrow'
-            % Increase speed
-            speed = min(speed + 2, 50);
+            speed = min(speed + 1, 50);
             setappdata(fig, 'speed', speed);
-            fprintf('Speed: %d frames/update\n', speed);
+            updateDisplay(fig);
 
         case 'downarrow'
-            % Decrease speed
-            speed = max(speed - 2, 1);
+            speed = max(speed - 1, 1);
             setappdata(fig, 'speed', speed);
-            fprintf('Speed: %d frames/update\n', speed);
+            updateDisplay(fig);
+
+        case 'bracketleft'  % [
+            window_width = max(window_width - 50, 50);
+            setappdata(fig, 'window_width', window_width);
+            updateDisplay(fig);
+
+        case 'bracketright'  % ]
+            window_width = min(window_width + 50, 500);
+            setappdata(fig, 'window_width', window_width);
+            updateDisplay(fig);
 
         case 'r'
-            % Reset
             setappdata(fig, 'current_frame', 1);
             updateDisplay(fig);
 
         case 's'
-            % Save frame
             batch_folder = getappdata(fig, 'batch_folder');
             analysis_folder = fullfile(batch_folder, 'analysis');
-            filename = fullfile(analysis_folder, sprintf('comparison_frame_%05d.png', current));
+            filename = fullfile(analysis_folder, sprintf('kymograph_frame_%05d.png', current));
             saveas(fig, filename);
             fprintf('Saved: %s\n', filename);
     end
