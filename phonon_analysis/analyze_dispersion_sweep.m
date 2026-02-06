@@ -17,8 +17,15 @@ clear; close all; clc;
 % Path to batch simulation folder
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
 
-% Simulations are inside batch_folder (each sinusoidal_f*_a* folder)
-sim_base_path = batch_folder;
+% Check for simulations in both locations (before/after reorganization)
+simulations_subfolder = fullfile(batch_folder, 'simulations');
+if exist(simulations_subfolder, 'dir')
+    sim_base_path = simulations_subfolder;  % New organized structure
+    fprintf('Using organized structure: simulations/\n');
+else
+    sim_base_path = batch_folder;  % Old flat structure
+    fprintf('Using flat structure (run reorganize_batch_folder.m to organize)\n');
+end
 
 % AUTO-DETECT available simulations from folder names
 sim_dirs = dir(fullfile(sim_base_path, 'sinusoidal_f*_a*.0'));

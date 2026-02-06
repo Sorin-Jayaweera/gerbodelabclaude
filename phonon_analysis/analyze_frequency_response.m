@@ -12,7 +12,16 @@ clear; close all;
 %% Configuration
 % Path to batch simulation folder
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
-sim_base_path = batch_folder;
+
+% Check for simulations in both locations (before/after reorganization)
+simulations_subfolder = fullfile(batch_folder, 'simulations');
+if exist(simulations_subfolder, 'dir')
+    sim_base_path = simulations_subfolder;  % New organized structure
+    fprintf('Using organized structure: simulations/\n');
+else
+    sim_base_path = batch_folder;  % Old flat structure
+    fprintf('Using flat structure (run reorganize_batch_folder.m to organize)\n');
+end
 
 % Frequencies are auto-detected from available simulation folders below
 drive_amplitude = 2.0;  % Known input amplitude in pixels
@@ -25,7 +34,7 @@ num_cycles_skip = 5;    % Skip initial transient (cycles)
 num_cycles_analyze = 10; % Analyze this many cycles for steady-state
 
 %% Find completed simulations
-sim_dirs = dir(fullfile(sim_base_path, 'sinusoidal_f*_a2.0'));
+sim_dirs = dir(fullfile(sim_base_path, 'sinusoidal_f*_a*.0'));
 completed_freqs = [];
 completed_paths = {};
 
@@ -35,8 +44,8 @@ for i = 1:length(sim_dirs)
     tokens = regexp(folder_name, 'sinusoidal_f([\d.]+)_a', 'tokens');
     if ~isempty(tokens)
         f = str2double(tokens{1}{1});
-        % Check if plist file exists
-        plist_file = fullfile(sim_base_path, folder_name, 'plist.txt');
+        % Check if plist.mat file exists (was plist.txt - BUG FIX)
+        plist_file = fullfile(sim_base_path, folder_name, 'plist.mat');
         if exist(plist_file, 'file')
             completed_freqs(end+1) = f;
             completed_paths{end+1} = fullfile(sim_base_path, folder_name);
@@ -330,45 +339,30 @@ end
 %% Helper Functions
 
 function [positions, box_size, n_particles, n_frames] = load_plist_data(plist_file)
-    % Load particle trajectory data from plist file
+    % Load particle trajectory data from plist.mat file
+    % Uses plist2xyz_auto helper function for conversion
     positions = [];
-    box_size = [640, 480];  % Default
+    box_size = [500, 300];  % Default for these simulations
     n_particles = 0;
     n_frames = 0;
 
     try
-        data = dlmread(plist_file);
-        n_frames = size(data, 1);
-        n_cols = size(data, 2);
+        % Load .mat file
+        loaded = load(plist_file);
+        plist = loaded.plist;
 
-        % Determine format (with or without box size columns)
-        % Try to auto-detect number of particles
-        % Format: [x1, y1, x2, y2, ...] or [x1, y1, x2, y2, ..., box_w, box_h]
+        % Convert using plist2xyz_auto (same as analyze_dispersion_sweep)
+        xyz = plist2xyz_auto(plist, 1);  % Use all frames
 
-        % Check if last two columns are constant (box size)
-        if n_cols > 4
-            last_col = data(:, end);
-            second_last = data(:, end-1);
-            if std(last_col) < 1 && std(second_last) < 1
-                % Last two columns are box size
-                box_size = [data(1, end-1), data(1, end)];
-                data = data(:, 1:end-2);
-                n_cols = size(data, 2);
-            end
-        end
+        % Unwrap periodic boundaries
+        xyz = unwrap_periodic(xyz, box_size);
 
-        n_particles = n_cols / 2;
-        if mod(n_cols, 2) ~= 0
-            warning('Odd number of columns in plist');
-            return;
-        end
+        [n_particles, ~, n_frames] = size(xyz);
 
-        % Reshape to [frames, particles, 2]
+        % Reshape to [frames, particles, 2] for this function's format
         positions = zeros(n_frames, n_particles, 2);
-        for p = 1:n_particles
-            positions(:, p, 1) = data(:, 2*p - 1);  % x
-            positions(:, p, 2) = data(:, 2*p);      % y
-        end
+        positions(:, :, 1) = squeeze(xyz(:, 1, :))';  % x: [particles, frames] -> [frames, particles]
+        positions(:, :, 2) = squeeze(xyz(:, 2, :))';
 
     catch ME
         warning('Failed to load %s: %s', plist_file, ME.message);
