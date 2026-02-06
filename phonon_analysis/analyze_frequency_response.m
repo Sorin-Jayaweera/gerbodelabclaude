@@ -74,7 +74,7 @@ for f_idx = 1:n_freqs
     fprintf('Processing f = %.4f (%d/%d)...\n', freq, f_idx, n_freqs);
 
     % Load trajectory data
-    plist_file = fullfile(sim_path, 'plist.txt');
+    plist_file = fullfile(sim_path, 'plist.mat');
     [positions, box_size, n_particles, n_frames] = load_plist_data(plist_file);
 
     if isempty(positions)
