@@ -146,54 +146,94 @@ for i = 1:length(frequencies)
     k_spatial = (0:n_fft-1) / (n_fft * dx) * 2 * pi;  % k = 2π/λ
 
     % Find dominant spatial frequency
-    % CRITICAL: Skip low-k values that correspond to box-size artifacts
-    % Minimum k corresponds to maximum wavelength of box_size/2
-    k_min = 2 * pi / (box_size(1) / 2);  % Max wavelength = half box size
+    % Allow wavelengths up to 80% of box size (more permissive than before)
+    k_min = 2 * pi / (box_size(1) * 0.8);  % Max wavelength = 80% of box
     k_max = 2 * pi / (lattice_constant * 2);  % Min wavelength = 2 lattice constants
 
     half = floor(n_fft/2);
     valid_k = k_spatial(1:half) > k_min & k_spatial(1:half) < k_max;
     valid_indices = find(valid_k);
 
-    if ~isempty(valid_indices)
+    % Find peak with prominence check (not just max)
+    if ~isempty(valid_indices) && length(valid_indices) > 3
+        spec_valid = spatial_spectrum(valid_indices);
+        [pks, locs, ~, proms] = findpeaks(spec_valid);
+
+        if ~isempty(pks)
+            % Use most prominent peak
+            [~, best] = max(proms);
+            peak_idx = valid_indices(locs(best));
+            k_measured = k_spatial(peak_idx);
+            wavelength = 2*pi / k_measured;
+        else
+            % No peaks found - use weighted average method
+            spec_valid = spec_valid / sum(spec_valid);
+            k_valid = k_spatial(valid_indices);
+            k_measured = sum(k_valid(:) .* spec_valid(:));
+            wavelength = 2*pi / k_measured;
+            fprintf('  Warning: No clear peak, using weighted avg\n');
+        end
+    elseif ~isempty(valid_indices)
         [~, rel_idx] = max(spatial_spectrum(valid_indices));
         peak_idx = valid_indices(rel_idx);
         k_measured = k_spatial(peak_idx);
         wavelength = 2*pi / k_measured;
     else
-        % Fallback: use temporal FFT to find wavelength from phase difference
-        % between near and far positions
-        fprintf('  Warning: No valid k peak found, using temporal method\n');
+        % Fallback: use 2D FFT to get (k, omega) and find k at drive frequency
+        fprintf('  Warning: No valid k peak found, using 2D FFT method\n');
 
-        % Get displacement time series at two x positions
-        near_idx = find(x0 > 30 & x0 < 60);
-        far_idx = find(x0 > 200 & x0 < 230);
+        % 2D FFT of kymograph
+        nfft_x = 2^nextpow2(n_bins);
+        nfft_t = 2^nextpow2(size(kymograph_steady, 2));
+        fft2d = abs(fft2(kymograph_steady, nfft_x, nfft_t));
 
-        if ~isempty(near_idx) && ~isempty(far_idx)
-            u_near = mean(ux(near_idx, :), 1);
-            u_far = mean(ux(far_idx, :), 1);
+        % Frequency axes
+        dk = 2*pi / (n_bins * dx);
+        k_axis = (0:nfft_x-1) * dk;
+        df = 1 / size(kymograph_steady, 2);
+        f_axis = (0:nfft_t-1) * df;
 
-            % Cross-correlation to find time delay
-            [xcorr_result, lags] = xcorr(u_far, u_near, 'coeff');
-            [~, max_idx] = max(xcorr_result);
-            time_delay = lags(max_idx);  % In frames
+        % Find the temporal frequency bin closest to drive frequency
+        [~, f_bin] = min(abs(f_axis - f));
 
-            % Distance between measurement points
-            dist = mean(x0(far_idx)) - mean(x0(near_idx));
+        % At that frequency, find the k with max power (skip DC)
+        k_spectrum = fft2d(2:floor(nfft_x/2), f_bin);
+        [~, k_idx] = max(k_spectrum);
+        k_measured = k_axis(k_idx + 1);  % +1 because we skipped DC
+        wavelength = 2*pi / k_measured;
 
-            % Phase velocity = distance / time_delay
-            if time_delay > 0
-                phase_velocity = dist / time_delay;  % pixels/frame
-                % wavelength = velocity / frequency
-                wavelength = phase_velocity / f;  % pixels
-                k_measured = 2*pi / wavelength;
+        if wavelength > box_size(1) * 0.9
+            fprintf('  2D FFT gave very long wavelength, trying cross-corr\n');
+            % Secondary fallback: cross-correlation
+            near_idx = find(x0 > 30 & x0 < 60);
+            far_idx = find(x0 > 200 & x0 < 230);
+
+            if ~isempty(near_idx) && ~isempty(far_idx)
+                u_near = mean(ux(near_idx, :), 1);
+                u_far = mean(ux(far_idx, :), 1);
+
+                % Cross-correlation to find time delay
+                [xcorr_result, lags] = xcorr(u_far, u_near, 'coeff');
+                [~, max_idx] = max(xcorr_result);
+                time_delay = lags(max_idx);  % In frames
+
+                % Distance between measurement points
+                dist = mean(x0(far_idx)) - mean(x0(near_idx));
+
+                % Phase velocity = distance / time_delay
+                if time_delay > 0
+                    phase_velocity = dist / time_delay;  % pixels/frame
+                    % wavelength = velocity / frequency
+                    wavelength = phase_velocity / f;  % pixels
+                    k_measured = 2*pi / wavelength;
+                else
+                    wavelength = box_size(1);  % Fallback
+                    k_measured = 2*pi / wavelength;
+                end
             else
                 wavelength = box_size(1);  % Fallback
                 k_measured = 2*pi / wavelength;
             end
-        else
-            wavelength = box_size(1);  % Fallback
-            k_measured = 2*pi / wavelength;
         end
     end
 
