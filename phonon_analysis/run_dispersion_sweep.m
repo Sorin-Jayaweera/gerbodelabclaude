@@ -56,16 +56,16 @@ frequencies = [0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, ...   % Very low
 drive_amplitude = 2.0;       % Pixels
 drive_width = 25;            % Driven region width (pixels from left edge)
 fixed_width = 25;            % Fixed region width (pixels from right edge) - ABSORBING BC
-num_frames = 30000;          % Total frames per simulation (increased for low freq)
+num_frames = 20000;          % Total frames per simulation (2000 data frames)
 data_saving_frequency = 10;  % Save position data every N frames
 
 % IMAGE SAVING PARAMETERS
 % Set high_freq_images_throughout = true to save images at high rate for entire sim
 % WARNING: This creates MANY more images but allows detailed animation viewing
-high_freq_images_throughout = true;   % <<< SET TO TRUE FOR DETAILED MOVIES
-num_initial_cycles = 3;               % Number of drive cycles to save at high frequency (if not throughout)
-images_per_cycle = 20;                % Images per cycle (every 0.05 cycles)
-image_saving_frequency_late = 1000;   % Image frequency after initial cycles (ignored if high_freq_throughout)
+high_freq_images_throughout = false;  % <<< FALSE to prevent crashes on high freq
+num_initial_cycles = 3;               % Number of drive cycles to save at high frequency
+images_per_cycle = 20;                % Images per cycle during initial phase
+image_saving_frequency_late = 500;    % Image frequency after initial cycles
 
 % DOMAIN STRUCTURE
 % Options: 'zigzags', 'stripes', 'random'
