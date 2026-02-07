@@ -32,14 +32,18 @@ analysis_folder = fullfile(batch_folder, 'analysis');
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
 
 % Frequencies to sweep (oscillations per simulation frame)
-% EXPANDED with LOWER frequencies for longer wavelength modes
+% EXPANDED with MORE LOW frequencies for longer wavelength modes
 % Note: f=0.01 means 100 frames per oscillation cycle
 %       f=0.001 means 1000 frames per cycle
 %       f=0.0005 means 2000 frames per cycle (very slow!)
 %       Lower f = longer wavelength, clearer wave propagation
+%
+% FOCUS: Dense sampling in 5e-4 to 3e-3 range as requested
 
-frequencies = [0.0003, 0.0005, 0.0007, 0.001, 0.0015, 0.002, 0.003, 0.005, ...
-               0.007, 0.01, 0.015, 0.02, 0.03, 0.05, 0.07, 0.10];
+frequencies = [0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, ...   % Very low
+               0.001, 0.0012, 0.0015, 0.0018, ...                     % Low
+               0.002, 0.0025, 0.003, 0.004, 0.005, ...                % Low-mid
+               0.007, 0.01, 0.02, 0.05, 0.10];                        % Higher (fewer)
 
 % 20 frequencies × ~30 min each = ~10 hours
 % DELETE existing simulation folders to re-run all
@@ -47,7 +51,8 @@ frequencies = [0.0003, 0.0005, 0.0007, 0.001, 0.0015, 0.002, 0.003, 0.005, ...
 % Common parameters for all simulations
 drive_amplitude = 2.0;       % Pixels
 drive_width = 25;            % Driven region width (pixels from left edge)
-num_frames = 20000;          % Total frames per simulation
+fixed_width = 25;            % Fixed region width (pixels from right edge) - ABSORBING BC
+num_frames = 30000;          % Total frames per simulation (increased for low freq)
 data_saving_frequency = 10;  % Save position data every N frames
 
 % IMAGE SAVING PARAMETERS
@@ -90,6 +95,7 @@ fprintf(fid, '  phonon dispersion relation omega(k) in colloidal crystal.\n\n');
 fprintf(fid, 'DRIVING PARAMETERS:\n');
 fprintf(fid, '  Drive amplitude: %.1f pixels\n', drive_amplitude);
 fprintf(fid, '  Drive width: %d pixels from left edge\n', drive_width);
+fprintf(fid, '  Fixed width: %d pixels from right edge (absorbing BC)\n', fixed_width);
 fprintf(fid, '  Frequencies: %s\n', mat2str(frequencies, 4));
 fprintf(fid, '  Number of frequencies: %d\n\n', length(frequencies));
 fprintf(fid, 'CRYSTAL PARAMETERS:\n');
@@ -217,12 +223,19 @@ for idx = 1:length(pending_indices)
         sim.initialize_grains_unfrust('zigzags');
     end
 
-    % Identify driven particles
+    % Identify driven particles (LEFT edge - sinusoidal motion)
     driven_indices = sim.initial_particles(:,1) < drive_width;
     equilibrium_x = sim.initial_particles(driven_indices, 1);
+
+    % Identify FIXED particles (RIGHT edge - held stationary to prevent wraparound)
+    fixed_indices = sim.initial_particles(:,1) > (sim_width - fixed_width);
+    fixed_equilibrium_x = sim.initial_particles(fixed_indices, 1);
+    fixed_equilibrium_y = sim.initial_particles(fixed_indices, 2);
+
     num_particles = size(sim.initial_particles, 1);
 
-    fprintf('  Particles: %d total, %d driven\n', num_particles, sum(driven_indices));
+    fprintf('  Particles: %d total, %d driven (left), %d fixed (right)\n', ...
+            num_particles, sum(driven_indices), sum(fixed_indices));
 
     % Create output folder
     mkdir(sim_full_path);
@@ -252,8 +265,12 @@ for idx = 1:length(pending_indices)
         % Simulate frame
         sim.simulateFrame();
 
-        % Re-enforce drive
+        % Re-enforce drive (left boundary - sinusoidal)
         sim.current_particles(driven_indices, 1) = equilibrium_x + drive_phase;
+
+        % Re-enforce FIXED boundary (right boundary - stationary)
+        sim.current_particles(fixed_indices, 1) = fixed_equilibrium_x;
+        sim.current_particles(fixed_indices, 2) = fixed_equilibrium_y;
 
         % Update neighbors if needed
         if any(sim.wraparoundDistancesTwoSets(sim.current_particles, particlesFromNeighborList) > sim.cutoff_distance - sim.particle_diam)
@@ -350,6 +367,10 @@ for idx = 1:length(pending_indices)
     sim_params.drive_width = drive_width;
     sim_params.driven_indices = driven_indices;
     sim_params.equilibrium_x = equilibrium_x;
+    sim_params.fixed_width = fixed_width;
+    sim_params.fixed_indices = fixed_indices;
+    sim_params.fixed_equilibrium_x = fixed_equilibrium_x;
+    sim_params.fixed_equilibrium_y = fixed_equilibrium_y;
     sim_params.width = sim_width;
     sim_params.height = sim_height;
     sim_params.looseness = looseness;

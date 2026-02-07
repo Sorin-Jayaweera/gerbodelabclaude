@@ -30,8 +30,9 @@ drive_amplitude = 2.0;  % Known input amplitude in pixels
 measure_positions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];  % 10% to 80% across
 
 % Analysis parameters
-num_cycles_skip = 5;    % Skip initial transient (cycles)
-num_cycles_analyze = 10; % Analyze this many cycles for steady-state
+num_cycles_skip = 3;    % Skip initial transient (cycles)
+num_cycles_analyze = 5; % Analyze this many cycles for steady-state
+data_saving_frequency = 10;  % How often data was saved (frames per data point)
 
 %% Find completed simulations
 sim_dirs = dir(fullfile(sim_base_path, 'sinusoidal_f*_a*.0'));
@@ -83,14 +84,28 @@ for f_idx = 1:n_freqs
     end
 
     % Determine frames to analyze
-    frames_per_cycle = round(1 / freq);
-    start_frame = num_cycles_skip * frames_per_cycle + 1;
-    end_frame = min(start_frame + num_cycles_analyze * frames_per_cycle, n_frames);
+    % IMPORTANT: Data is saved every data_saving_frequency simulation frames
+    % So data frames = simulation frames / data_saving_frequency
+    sim_frames_per_cycle = round(1 / freq);
+    data_frames_per_cycle = round(sim_frames_per_cycle / data_saving_frequency);
 
-    if end_frame <= start_frame
-        fprintf('  Not enough frames for analysis, skipping\n');
+    % Adjust cycles to skip/analyze based on available data
+    available_cycles = n_frames / max(1, data_frames_per_cycle);
+    actual_skip = min(num_cycles_skip, floor(available_cycles * 0.2));  % Skip at most 20% of data
+    actual_analyze = min(num_cycles_analyze, floor(available_cycles * 0.5));  % Analyze up to 50%
+
+    start_frame = max(1, actual_skip * data_frames_per_cycle + 1);
+    end_frame = min(start_frame + actual_analyze * data_frames_per_cycle, n_frames);
+
+    if end_frame <= start_frame + data_frames_per_cycle  % Need at least 1 cycle
+        fprintf('  Not enough frames for analysis (need at least 1 cycle), skipping\n');
+        fprintf('    Available: %d data frames, need: %d per cycle\n', n_frames, data_frames_per_cycle);
         continue;
     end
+
+    fprintf('  Using %d data frames (%d to %d), %.1f cycles\n', ...
+            end_frame - start_frame + 1, start_frame, end_frame, ...
+            (end_frame - start_frame) / max(1, data_frames_per_cycle));
 
     analyze_frames = start_frame:end_frame;
     n_analyze = length(analyze_frames);
@@ -122,11 +137,16 @@ for f_idx = 1:n_freqs
         avg_displacement = mean(x_displacements, 2);
 
         % Generate reference drive signal
+        % IMPORTANT: freq is in cycles per SIMULATION frame
+        % Data frames are every data_saving_frequency simulation frames
         t_vec = (0:n_analyze-1)';
-        drive_signal = drive_amplitude * sin(2 * pi * freq * (analyze_frames(1) + t_vec - 1));
+        sim_frames = (analyze_frames(1) + t_vec - 1) * data_saving_frequency;  % Convert to sim frames
+        drive_signal = drive_amplitude * sin(2 * pi * freq * sim_frames);
 
         % Compute transfer function using cross-correlation / FFT
-        [mag, phase_deg, coh] = compute_transfer_function(drive_signal, avg_displacement, freq, 1);
+        % Frequency in cycles per DATA frame (for FFT indexing)
+        freq_in_data_frames = freq * data_saving_frequency;
+        [mag, phase_deg, coh] = compute_transfer_function(drive_signal, avg_displacement, freq_in_data_frames, 1);
 
         magnitude_response(f_idx, p_idx) = mag;
         phase_response(f_idx, p_idx) = phase_deg;
