@@ -70,6 +70,15 @@ for p = 1:n_panels
     xyz = plist2xyz_auto(loaded.plist, 1);
     xyz = unwrap_periodic(xyz, box_size);
 
+    % Load data_saving_frequency from sim_params
+    params_file = fullfile(selected_paths{p}, 'sim_params.mat');
+    if exist(params_file, 'file')
+        params = load(params_file);
+        data_saving_freq = params.sim_params.data_saving_frequency;
+    else
+        data_saving_freq = 10;  % Default
+    end
+
     [~, ~, N_frames] = size(xyz);
     min_frames = min(min_frames, N_frames);
 
@@ -92,7 +101,9 @@ for p = 1:n_panels
         end
     end
 
-    displacement_data{p} = struct('x', x_centers, 'u', binned, 'freq', selected_freqs(p));
+    % Store data_saving_freq so we can calculate correct drive phase
+    displacement_data{p} = struct('x', x_centers, 'u', binned, 'freq', selected_freqs(p), ...
+                                   'data_saving_freq', data_saving_freq);
 end
 
 %% Create figure
@@ -234,7 +245,10 @@ function updateDisplay(fig)
         set(line_handles{p}, 'YData', data.u(:, current));
 
         % Update drive marker (shows current drive phase)
-        drive_phase = 2 * sin(2 * pi * data.freq * current);
+        % IMPORTANT: current is data frame, but drive uses simulation frame
+        % simulation_frame = data_frame * data_saving_frequency
+        sim_frame = current * data.data_saving_freq;
+        drive_phase = 2 * sin(2 * pi * data.freq * sim_frame);
         set(drive_markers{p}, 'YData', drive_phase);
     end
 
