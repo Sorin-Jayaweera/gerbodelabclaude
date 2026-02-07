@@ -22,8 +22,8 @@ else
     sim_base_path = batch_folder;
 end
 
-% Select frequencies to compare (low to high)
-target_freqs = [0.002, 0.005, 0.01, 0.02, 0.04, 0.08];
+% Select frequencies to compare - updated for new low-frequency simulations
+target_freqs = [0.0003, 0.0007, 0.002, 0.007, 0.02, 0.07];
 n_panels = length(target_freqs);
 grid_rows = 2;
 grid_cols = 3;
