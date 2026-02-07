@@ -13,8 +13,8 @@
 clear; close all;
 
 %% Add paths
-addpath('Z:\Colloid Cru\Colloid Work Folder');
-addpath('Z:\Colloid Cru\Simulations');
+addpath(genpath('Z:\Colloid Cru\Colloid Work Folder'));
+addpath(genpath('Z:\Colloid Cru\Simulations'));
 
 %% Configuration
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';

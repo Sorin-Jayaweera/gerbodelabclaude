@@ -13,8 +13,8 @@
 clear; close all; clc;
 
 %% ==================== ADD PATHS ====================
-addpath('Z:\Colloid Cru\Colloid Work Folder');
-addpath('Z:\Colloid Cru\Simulations');
+addpath(genpath('Z:\Colloid Cru\Colloid Work Folder'));
+addpath(genpath('Z:\Colloid Cru\Simulations'));
 
 %% ==================== CONFIGURATION ====================
 

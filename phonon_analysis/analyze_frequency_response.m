@@ -10,8 +10,8 @@
 clear; close all;
 
 %% Add paths
-addpath('Z:\Colloid Cru\Colloid Work Folder');
-addpath('Z:\Colloid Cru\Simulations');
+addpath(genpath('Z:\Colloid Cru\Colloid Work Folder'));
+addpath(genpath('Z:\Colloid Cru\Simulations'));
 
 %% Configuration
 % Path to batch simulation folder
