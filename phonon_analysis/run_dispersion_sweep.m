@@ -17,6 +17,10 @@
 
 clear; clc;
 
+%% ==================== ADD PATHS ====================
+addpath('Z:\Colloid Cru\Colloid Work Folder');
+addpath('Z:\Colloid Cru\Simulations');
+
 %% ==================== BATCH FOLDER SETUP ====================
 % All simulations for this batch go into a named folder with:
 %   - simulations/  (contains each sinusoidal_f*_a* subfolder)
@@ -60,16 +64,16 @@ data_saving_frequency = 10;  % Save position data every N frames
 % WARNING: This creates MANY more images but allows detailed animation viewing
 high_freq_images_throughout = true;   % <<< SET TO TRUE FOR DETAILED MOVIES
 num_initial_cycles = 3;               % Number of drive cycles to save at high frequency (if not throughout)
-images_per_cycle = 10;                % Images per cycle
+images_per_cycle = 20;                % Images per cycle (every 0.05 cycles)
 image_saving_frequency_late = 1000;   % Image frequency after initial cycles (ignored if high_freq_throughout)
 
 % DOMAIN STRUCTURE
 % Options: 'zigzags', 'stripes', 'random'
 domain_style = 'zigzags';
 
-% Crystal parameters
-sim_width = 500;
-sim_height = 300;
+% Crystal parameters - INCREASED SIZE for better wave propagation
+sim_width = 800;   % Increased from 500 for longer propagation distance
+sim_height = 400;  % Increased from 300 for more particles
 looseness = 1.06;
 zmax = 0.45;
 

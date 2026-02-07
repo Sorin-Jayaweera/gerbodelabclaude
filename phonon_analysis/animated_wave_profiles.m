@@ -15,6 +15,10 @@
 
 clear; close all;
 
+%% Add paths
+addpath('Z:\Colloid Cru\Colloid Work Folder');
+addpath('Z:\Colloid Cru\Simulations');
+
 %% Configuration
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
 simulations_folder = fullfile(batch_folder, 'simulations');
@@ -59,7 +63,7 @@ for i = 1:n_panels
 end
 
 %% Load displacement data
-box_size = [500, 300];
+box_size = [800, 400];  % Updated for larger simulations
 n_bins = 100;
 displacement_data = cell(n_panels, 1);
 min_frames = inf;
@@ -144,14 +148,14 @@ for p = 1:n_panels
         'FaceAlpha', 0.3, 'EdgeColor', 'none');
 
     % Zero line
-    plot([0 500], [0 0], 'w--', 'LineWidth', 0.5);
+    plot([0 box_size(1)], [0 0], 'w--', 'LineWidth', 0.5);
 
     % Drive indicator (sinusoid at left)
     drive_markers{p} = plot(10, 0, 'go', 'MarkerSize', 15, 'MarkerFaceColor', 'g');
 
     hold off;
 
-    xlim([0 500]);
+    xlim([0 box_size(1)]);
     ylim([-y_limit y_limit]);
 
     period = round(1/data.freq);

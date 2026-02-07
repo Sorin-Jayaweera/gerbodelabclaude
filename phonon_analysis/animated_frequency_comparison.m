@@ -12,6 +12,10 @@
 
 clear; close all;
 
+%% Add paths
+addpath('Z:\Colloid Cru\Colloid Work Folder');
+addpath('Z:\Colloid Cru\Simulations');
+
 %% Configuration
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
 simulations_folder = fullfile(batch_folder, 'simulations');
@@ -60,7 +64,7 @@ for i = 1:n_panels
 end
 
 %% Load all kymographs
-box_size = [500, 300];
+box_size = [800, 400];  % Updated for larger simulations
 n_bins = 100;
 kymographs = cell(n_panels, 1);
 min_frames = inf;

@@ -9,6 +9,10 @@
 
 clear; close all;
 
+%% Add paths
+addpath('Z:\Colloid Cru\Colloid Work Folder');
+addpath('Z:\Colloid Cru\Simulations');
+
 %% Configuration
 % Path to batch simulation folder
 batch_folder = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\drivensinesims';
@@ -372,11 +376,21 @@ function [positions, box_size, n_particles, n_frames] = load_plist_data(plist_fi
     % Load particle trajectory data from plist.mat file
     % Uses plist2xyz_auto helper function for conversion
     positions = [];
-    box_size = [500, 300];  % Default for these simulations
+    box_size = [800, 400];  % Default for new larger simulations
     n_particles = 0;
     n_frames = 0;
 
     try
+        % Try to get box_size from sim_params.mat if it exists
+        sim_folder = fileparts(plist_file);
+        params_file = fullfile(sim_folder, 'sim_params.mat');
+        if exist(params_file, 'file')
+            params = load(params_file);
+            if isfield(params, 'sim_params') && isfield(params.sim_params, 'width')
+                box_size = [params.sim_params.width, params.sim_params.height];
+            end
+        end
+
         % Load .mat file
         loaded = load(plist_file);
         plist = loaded.plist;

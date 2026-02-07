@@ -12,6 +12,10 @@
 
 clear; close all; clc;
 
+%% ==================== ADD PATHS ====================
+addpath('Z:\Colloid Cru\Colloid Work Folder');
+addpath('Z:\Colloid Cru\Simulations');
+
 %% ==================== CONFIGURATION ====================
 
 % Path to batch simulation folder
@@ -51,8 +55,8 @@ particle_diameter = 10;  % pixels
 looseness = 1.06;
 lattice_constant = particle_diameter * looseness;
 
-% Box size
-box_size = [500, 300];
+% Box size (will be overridden by sim_params if available)
+box_size = [800, 400];  % Default - increased to match new simulations
 
 % Output - save analysis results in the batch folder
 output_folder = fullfile(batch_folder, 'analysis');
