@@ -19,22 +19,22 @@ simulations_folder = fullfile(batch_folder, 'simulations');
 analysis_folder = fullfile(batch_folder, 'analysis');
 
 %% ==================== FREQUENCY SWEEP PARAMETERS ====================
-% Same frequencies as zigzag for comparison
+% Same frequencies as zigzag for comparison - INCLUDING 0.10 now
 frequencies = [0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, ...
                0.001, 0.0012, 0.0015, 0.0018, ...
                0.002, 0.0025, 0.003, 0.004, 0.005, ...
-               0.007, 0.01, 0.02, 0.05];  % Exclude 0.10 (aliasing)
+               0.007, 0.01, 0.02, 0.05, 0.10];  % 0.10 included with higher sampling
 
 % Common parameters
 drive_amplitude = 2.0;
 drive_width = 25;
 fixed_width = 25;
 num_frames = 20000;
-data_saving_frequency = 10;
+data_saving_frequency = 2;  % Save every 2 frames = 10,000 data frames (5 samples/cycle at f=0.1)
 
 % IMAGE SAVING - Save every data frame for smooth video viewing
-% Match data_saving_frequency so we get one image per data point
-image_saving_frequency = 10;  % Every 10 sim frames = 2000 images total
+% Match data_saving_frequency for smooth motion at all frequencies
+image_saving_frequency = 2;  % Every 2 sim frames = 10,000 images total
 
 % DOMAIN STRUCTURE
 domain_style = 'random';  % <<< RANDOM
