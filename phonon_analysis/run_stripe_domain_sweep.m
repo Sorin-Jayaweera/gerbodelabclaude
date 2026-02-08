@@ -32,9 +32,9 @@ fixed_width = 25;
 num_frames = 20000;
 data_saving_frequency = 10;
 
-% IMAGE SAVING - Fixed rate for consistent video viewing
-% Save every N simulation frames (not per-cycle)
-image_saving_frequency = 100;  % Every 100 sim frames = 200 images total
+% IMAGE SAVING - Save every data frame for smooth video viewing
+% Match data_saving_frequency so we get one image per data point
+image_saving_frequency = 10;  % Every 10 sim frames = 2000 images total
 
 % DOMAIN STRUCTURE
 domain_style = 'stripes';  % <<< STRIPES
