@@ -1,29 +1,50 @@
 # Ignore large simulation output files
-# Keep .mat files (data) but ignore images
+# Keep .m code files, ignore data and images
 
-# Simulation image outputs (PNG files in simulation folders)
+# ============ SIMULATION DATA (LARGE) ============
+# MAT files (plist, sim data - can be many GB)
+**/plist.mat
+**/sim.mat
+**/sim_params.mat
+drivensinesims/**/*.mat
+
+# Simulation folders themselves
+drivensinesims/simulations/
+**/sinusoidal_f*/
+
+# ============ IMAGES ============
+# Generated images from simulations (thousands per experiment)
+**/images/
+**/generated_images/
 sinusoidal_*/0*.png
 sinusoidal_*/*.png
 PhononSims/**/*.png
 strongimpulse*/*.png
-
-# Any plist images
 **/plist_*.png
+**/frame_*.png
+**/kymograph_*.png
 
 # Large video files
 *.avi
 *.mp4
 *.mov
 
-# MATLAB temporary files
+# ============ ANALYSIS OUTPUTS ============
+# Analysis figures (can regenerate from data)
+# Uncomment these if you want to exclude analysis too:
+# drivensinesims/analysis/*.png
+# drivensinesims/analysis/*.fig
+# drivensinesims/analysis/*.mat
+
+# ============ MATLAB TEMP FILES ============
 *.asv
 *.m~
 *.autosave
+*.mexa64
+*.mexmaci64
+*.mexw64
 
-# OS files
+# ============ OS FILES ============
 .DS_Store
 Thumbs.db
-
-# Keep analysis results (they're smaller)
-# !phonon_results/*.png
-# !dispersion_results/*.png
+desktop.ini
