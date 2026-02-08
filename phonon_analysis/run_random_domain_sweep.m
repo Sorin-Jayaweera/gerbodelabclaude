@@ -30,11 +30,14 @@ drive_amplitude = 2.0;
 drive_width = 25;
 fixed_width = 25;
 num_frames = 20000;
-data_saving_frequency = 10;  % Save every 10 frames = 2,000 data frames
+data_saving_frequency = 2;  % Save every 2 frames = 10,000 data frames (5 samples/cycle at f=0.1)
 
-% IMAGE SAVING - Save every data frame for smooth video viewing
-% 2000 images total = one per data frame
-image_saving_frequency = 10;  % Every 10 sim frames = 2000 images total
+% IMAGE SAVING - Adaptive based on frequency
+% Low frequencies (f < 0.02): save every 10 frames = 2000 images
+% High frequencies (f >= 0.02): save every 2 frames to see oscillation
+% Set per-frequency in the loop below
+base_image_freq_low = 10;   % For f < 0.02: 2000 images
+base_image_freq_high = 2;   % For f >= 0.02: 10000 images (needed to see fast oscillation)
 
 % DOMAIN STRUCTURE
 domain_style = 'random';  % <<< RANDOM
@@ -88,7 +91,7 @@ fprintf('   RANDOM DOMAIN FREQUENCY SWEEP\n');
 fprintf('==============================================\n');
 fprintf('Frequencies to run: %d total\n', length(frequencies));
 fprintf('Domain structure: %s\n', domain_style);
-fprintf('Images per simulation: %d\n', floor(num_frames/image_saving_frequency));
+fprintf('Images: 2000 (low freq) or 10000 (high freq f>=0.02)\n');
 fprintf('\n');
 
 %% Pre-scan for completed simulations
@@ -122,8 +125,17 @@ for idx = 1:length(pending_indices)
     drive_frequency = frequencies(i);
     frames_per_cycle = round(1 / drive_frequency);
 
+    % Set image saving frequency based on drive frequency
+    % High frequencies need more images to see oscillation
+    if drive_frequency >= 0.02
+        image_saving_frequency = base_image_freq_high;  % 10000 images
+    else
+        image_saving_frequency = base_image_freq_low;   % 2000 images
+    end
+
     fprintf('\n----------------------------------------------\n');
-    fprintf('Running %d/%d: f = %.4f (%s)\n', idx, length(pending_indices), drive_frequency, domain_style);
+    fprintf('Running %d/%d: f = %.4f (%s) - %d images\n', idx, length(pending_indices), ...
+            drive_frequency, domain_style, floor(num_frames/image_saving_frequency));
     fprintf('----------------------------------------------\n');
 
     sim_name = sprintf('sinusoidal_f%.4f_a%.1f_random', drive_frequency, drive_amplitude);
