@@ -30,11 +30,11 @@ drive_amplitude = 2.0;
 drive_width = 25;
 fixed_width = 25;
 num_frames = 20000;
-data_saving_frequency = 2;  % Save every 2 frames = 10,000 data frames (5 samples/cycle at f=0.1)
+data_saving_frequency = 10;  % Save every 10 frames = 2,000 data frames
 
 % IMAGE SAVING - Save every data frame for smooth video viewing
-% Match data_saving_frequency for smooth motion at all frequencies
-image_saving_frequency = 2;  % Every 2 sim frames = 10,000 images total
+% 2000 images total = one per data frame
+image_saving_frequency = 10;  % Every 10 sim frames = 2000 images total
 
 % DOMAIN STRUCTURE
 domain_style = 'random';  % <<< RANDOM
