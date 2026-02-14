@@ -265,6 +265,11 @@ for idx = 1:length(pending_indices)
     save(fullfile(sim_full_path, 'sim_params.mat'), 'sim_params');
 
     fprintf('  Completed in %.1f minutes\n', toc/60);
+
+    % MEMORY CLEANUP - prevent MATLAB crash
+    clearvars sim plist img fig;
+    close all force;
+    pause(1);  % Brief pause for memory to clear
 end
 
 fprintf('\n==============================================\n');
