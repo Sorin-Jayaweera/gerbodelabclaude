@@ -139,19 +139,29 @@ for i = 1:total_tasks
 
     catch ME
         elapsed = toc;
-        error_msg = sprintf('%s (line %d)', ME.message, ME.stack(1).line);
+        if ~isempty(ME.stack)
+            error_msg = sprintf('%s (line %d)', ME.message, ME.stack(1).line);
+        else
+            error_msg = ME.message;
+        end
         log_progress(progress_file, step, task_name, 'FAILED', error_msg);
 
         % Log full error to progress file
-        fid = fopen(progress_file, 'a');
-        fprintf(fid, '  ERROR DETAILS:\n');
-        fprintf(fid, '    Message: %s\n', ME.message);
-        fprintf(fid, '    Identifier: %s\n', ME.identifier);
-        for s = 1:length(ME.stack)
-            fprintf(fid, '    Stack[%d]: %s line %d\n', s, ME.stack(s).name, ME.stack(s).line);
+        try
+            fid = fopen(progress_file, 'a');
+            if fid > 0
+                fprintf(fid, '  ERROR DETAILS:\n');
+                fprintf(fid, '    Message: %s\n', ME.message);
+                fprintf(fid, '    Identifier: %s\n', ME.identifier);
+                for s = 1:length(ME.stack)
+                    fprintf(fid, '    Stack[%d]: %s line %d\n', s, ME.stack(s).name, ME.stack(s).line);
+                end
+                fprintf(fid, '\n');
+                fclose(fid);
+            end
+        catch
+            % Ignore file writing errors
         end
-        fprintf(fid, '\n');
-        fclose(fid);
 
         failed = failed + 1;
 

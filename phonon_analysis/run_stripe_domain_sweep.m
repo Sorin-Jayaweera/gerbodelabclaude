@@ -79,8 +79,10 @@ fprintf(fid, '  Simulation size: %d x %d pixels\n', sim_width, sim_height);
 fprintf(fid, '  Looseness: %.3f\n', looseness);
 fprintf(fid, '  Zmax: %.3f\n\n', zmax);
 fprintf(fid, 'IMAGE SAVING:\n');
-fprintf(fid, '  Every %d simulation frames = %d images per simulation\n', ...
-    image_saving_frequency, floor(num_frames/image_saving_frequency));
+fprintf(fid, '  Low freq (f<0.02): every %d frames = %d images\n', ...
+    base_image_freq_low, floor(num_frames/base_image_freq_low));
+fprintf(fid, '  High freq (f>=0.02): every %d frames = %d images\n', ...
+    base_image_freq_high, floor(num_frames/base_image_freq_high));
 fprintf(fid, '\nDATE STARTED: %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
 fclose(fid);
 fprintf('Batch folder: %s\n', batch_folder);
