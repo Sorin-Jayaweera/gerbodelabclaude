@@ -122,6 +122,7 @@ xlabel('Displacement (px)');
 ylabel('Probability density');
 title('Thermal Fluctuations');
 legend('X', 'Y');
+xlim([-20 20]);  % Zoom to relevant range
 
 % Plot 2: Power spectrum
 subplot(1, 3, 2);
