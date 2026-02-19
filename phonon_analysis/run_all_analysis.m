@@ -32,8 +32,8 @@ if ~exist(output_base, 'dir')
 end
 
 % Domain types to analyze
-domains = {'zigzag', 'stripe', 'random', 'topdriven'};
-batch_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims'};
+domains = {'chevron', 'stripe', 'random', 'topdriven', 'frust_side', 'frust_top'};
+batch_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims', 'frustsinesims', 'frusttopsims'};
 
 % Progress file
 progress_file = fullfile(output_base, 'analysis_progress.txt');

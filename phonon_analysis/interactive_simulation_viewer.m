@@ -6,7 +6,8 @@ function interactive_simulation_viewer()
 %   - Frequency slider to select which frequency to view
 %   - View modes: Wavefront profile, Kymograph, Particle positions
 %   - Playback controls: Play, Pause, Step, Speed
-%   - Side-by-side comparison of zigzag, stripe, random, topdriven
+%   - Side-by-side comparison of chevron, stripe, random, topdriven
+%   - Load range dropdowns: select which % of data to load (reduces memory)
 %
 % FIX NOTE: Uses fig.UserData instead of guidata - required for timer
 % callbacks to reliably access and update state in uifigure.
@@ -15,9 +16,9 @@ function interactive_simulation_viewer()
 % Date: 2026
 
 %% ==================== CONFIGURATION ====================
-base_path = 'X:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
 
-sim_types   = {'zigzag', 'stripe', 'random', 'topdriven'};
+sim_types   = {'chevron', 'stripe', 'random', 'topdriven'};
 sim_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims'};
 
 all_frequencies = [0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, ...
@@ -65,12 +66,29 @@ uilabel(cp, 'Text', 'Speed:', 'Position', [8 500 60 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.25x','0.5x','1x','2x','4x'}, 'Value', '1x', ...
     'Position', [70 498 80 24]);
 
+% ---- loaded status ----
 uilabel(cp, 'Text', 'Loaded:', 'Position', [8 460 185 18], 'FontColor', 'w');
 txt_status = uitextarea(cp, 'Position', [8 330 185 128], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
+% ---- load button ----
 btn_load = uibutton(cp, 'Text', 'Load Data', 'Position', [8 295 185 30], ...
     'BackgroundColor', [0.2 0.4 0.6]);
+
+% ---- load range dropdowns ----
+uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 268 185 18], 'FontColor', 'w');
+dd_range_start = uidropdown(cp, ...
+    'Items', {'0%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
+    'Value', '0%', 'Position', [8 242 82 24]);
+uilabel(cp, 'Text', 'to', 'Position', [93 245 18 18], 'FontColor', 'w');
+dd_range_end = uidropdown(cp, ...
+    'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
+    'Value', '20%', 'Position', [114 242 79 24]);
+
+uilabel(cp, 'Text', 'Default: 0-20% loads', 'Position', [8 220 185 18], ...
+    'FontColor', [0.5 0.5 0.5], 'FontSize', 8);
+uilabel(cp, 'Text', 'first 1/5 of sim.', 'Position', [8 205 185 18], ...
+    'FontColor', [0.5 0.5 0.5], 'FontSize', 8);
 
 % ---- plot panels ----
 pw = 575; ph = 430;
@@ -97,19 +115,23 @@ S.max_frames     = 100;
 S.view_mode      = 'particles';
 S.is_playing     = false;
 S.play_speed     = 1;
+S.load_start_pct = 0;
+S.load_end_pct   = 20;
 S.data           = struct();   % loaded xyz arrays keyed by sim_type
 S.params         = struct();   % loaded sim_params
 % UI handles stored so callbacks can access them
-S.sl_freq   = sl_freq;
-S.sl_frame  = sl_frame;
-S.lbl_freq  = lbl_freq;
-S.lbl_frame = lbl_frame;
-S.btn_play  = btn_play;
-S.btn_part  = btn_part;
-S.btn_wave  = btn_wave;
-S.btn_kymo  = btn_kymo;
-S.txt_status = txt_status;
-S.axs        = axs;
+S.sl_freq        = sl_freq;
+S.sl_frame       = sl_frame;
+S.lbl_freq       = lbl_freq;
+S.lbl_frame      = lbl_frame;
+S.btn_play       = btn_play;
+S.btn_part       = btn_part;
+S.btn_wave       = btn_wave;
+S.btn_kymo       = btn_kymo;
+S.txt_status     = txt_status;
+S.dd_range_start = dd_range_start;
+S.dd_range_end   = dd_range_end;
+S.axs            = axs;
 fig.UserData = S;
 
 %% ==================== WIRE CALLBACKS ====================
@@ -261,6 +283,11 @@ end
 function cb_load(fig)
     S = fig.UserData;
     freq = S.frequencies(S.freq_idx);
+
+    % Read load range from dropdowns
+    start_pct = str2double(strtrim(strrep(S.dd_range_start.Value, '%', '')));
+    end_pct   = str2double(strtrim(strrep(S.dd_range_end.Value,   '%', '')));
+
     lines_out = {};
     max_frames = 1;
 
@@ -285,7 +312,14 @@ function cb_load(fig)
         try
             ld = load(plist_path);
             plist = ld.plist;
-            frame_ids   = unique(plist(:,4));
+            all_frame_ids = unique(plist(:,4));
+            n_total = length(all_frame_ids);
+
+            % Subset to requested range
+            first_idx = max(1, round(start_pct/100 * n_total) + 1);
+            last_idx  = min(n_total, round(end_pct/100 * n_total));
+            if last_idx < first_idx + 1; last_idx = min(first_idx + 1, n_total); end
+            frame_ids   = all_frame_ids(first_idx:last_idx);
             n_frames    = length(frame_ids);
             n_particles = sum(plist(:,4) == frame_ids(1));
 
@@ -306,10 +340,10 @@ function cb_load(fig)
             end
 
             max_frames = max(max_frames, n_frames);
-            lines_out{end+1} = sprintf('%s: %d fr', upper(st), n_frames);
+            lines_out{end+1} = sprintf('%s: %d/%d fr', upper(st), n_frames, n_total);
         catch ME
             S.data.(st) = [];
-            lines_out{end+1} = sprintf('%s: ERR', upper(st));
+            lines_out{end+1} = sprintf('%s: ERR - %s', upper(st), ME.message);
         end
     end
 
