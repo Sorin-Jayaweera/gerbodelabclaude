@@ -15,7 +15,7 @@ function interactive_simulation_viewer()
 % Date: 2026
 
 %% ==================== CONFIGURATION ====================
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'X:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
 
 sim_types   = {'zigzag', 'stripe', 'random', 'topdriven'};
 sim_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims'};
