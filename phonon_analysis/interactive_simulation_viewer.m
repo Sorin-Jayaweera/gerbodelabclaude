@@ -430,7 +430,7 @@ function cb_load(fig, force_reload)
 end
 
 function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct)
-%% Fast simulation loading using vectorized operations
+%% Fast simulation loading - handles variable particle counts per frame
     xyz = [];
     n_total = 0;
     sim_params = struct('width', 800, 'height', 400, 'drive_frequency', freq, 'drive_amplitude', 2.0);
@@ -442,18 +442,12 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
             sim_params = pd.sim_params;
         end
 
-        % Use matfile to check size without loading all data
-        mf = matfile(plist_path);
-        plist_size = size(mf, 'plist');
-        total_rows = plist_size(1);
-
-        % Load plist - unfortunately MATLAB's matfile doesn't support complex indexing
-        % so we need to load it, but we'll process it efficiently
+        % Load plist
         ld = load(plist_path, 'plist');
         plist = ld.plist;
         clear ld;  % Free memory immediately
 
-        % Get frame IDs efficiently
+        % Get frame IDs
         frame_col = plist(:, 4);
         all_frame_ids = unique(frame_col);
         n_total = length(all_frame_ids);
@@ -468,24 +462,21 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
         frame_ids = all_frame_ids(first_idx:last_idx);
         n_frames = length(frame_ids);
 
-        % Count particles in first frame
+        % Count particles in first frame to allocate
         n_particles = sum(frame_col == frame_ids(1));
-
-        % Filter plist to only include needed frames (faster than looping)
-        frame_set = ismember(frame_col, frame_ids);
-        plist_subset = plist(frame_set, :);
-        clear plist frame_col frame_set;  % Free memory
-
-        % Reshape using vectorized operations
-        % plist_subset is sorted by frame, so we can reshape directly
         xyz = zeros(n_particles, 3, n_frames);
 
-        % Vectorized extraction - much faster than loop
+        % Extract frames - handle variable particle counts safely
         for ff = 1:n_frames
-            start_row = (ff-1) * n_particles + 1;
-            end_row = ff * n_particles;
-            xyz(:, :, ff) = plist_subset(start_row:end_row, 1:3);
+            mask = (frame_col == frame_ids(ff));
+            frame_data = plist(mask, 1:3);
+            n_in_frame = size(frame_data, 1);
+            % Use minimum to avoid index errors if particle count varies
+            n_use = min(n_in_frame, n_particles);
+            xyz(1:n_use, :, ff) = frame_data(1:n_use, :);
         end
+
+        clear plist frame_col;
 
     catch ME
         warning('Load error: %s', ME.message);
@@ -602,7 +593,10 @@ function draw_wavefront_fast(ax, xyz, fr, W, x0)
     ymax = max(0.5, max(abs(avg_dx)) * 1.5);
     ylim(ax, [-ymax, ymax]);
     xlabel(ax,'X position (px)'); ylabel(ax,'Displacement (px)');
-    set(ax,'Color','k'); hold(ax,'off');
+    set(ax,'Color','k');
+    % Set plot box aspect ratio so y variations are visible (3:1 width:height)
+    pbaspect(ax, [3 1 1]);
+    hold(ax,'off');
 end
 
 function draw_kymograph_fast(ax, kymo, W)
@@ -619,4 +613,6 @@ function draw_kymograph_fast(ax, kymo, W)
     clim(ax, [-cmax, cmax]);
     xlabel(ax,'Frame'); ylabel(ax,'X position (px)');
     set(ax,'YDir','normal');
+    % Set aspect ratio so kymograph isn't too stretched (2:1 width:height)
+    pbaspect(ax, [2 1 1]);
 end
