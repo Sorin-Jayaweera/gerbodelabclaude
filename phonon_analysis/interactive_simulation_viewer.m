@@ -367,7 +367,7 @@ function cb_load(fig, force_reload)
             S.kymo_cache.(st) = cached.kymo;
             S.ymax_cache.(st) = cached.ymax;
             max_frames = max(max_frames, size(cached.xyz, 3));
-            lines_out{end+1} = sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3));
+            lines_out = [lines_out; {sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3))}];
             continue;
         end
 
@@ -379,7 +379,7 @@ function cb_load(fig, force_reload)
         if ~exist(plist_path, 'file')
             S.data.(st) = [];
             S.params.(st) = [];
-            lines_out{end+1} = sprintf('%s: not found', upper(st));
+            lines_out = [lines_out; {sprintf('%s: not found', upper(st))}];
             continue;
         end
 
@@ -393,7 +393,7 @@ function cb_load(fig, force_reload)
             if isempty(xyz)
                 S.data.(st) = [];
                 S.params.(st) = [];
-                lines_out{end+1} = sprintf('%s: load failed', upper(st));
+                lines_out = [lines_out; {sprintf('%s: load failed', upper(st))}];
                 continue;
             end
 
@@ -419,10 +419,10 @@ function cb_load(fig, force_reload)
             S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', x0, 'kymo', kymo, 'ymax', global_ymax);
 
             max_frames = max(max_frames, n_frames);
-            lines_out{end+1} = sprintf('%s: %d/%d fr', upper(st), n_frames, n_total);
+            lines_out = [lines_out; {sprintf('%s: %d/%d fr', upper(st), n_frames, n_total)}];
         catch ME
             S.data.(st) = [];
-            lines_out{end+1} = sprintf('%s: ERR - %s', upper(st), ME.message);
+            lines_out = [lines_out; {sprintf('%s: ERR - %s', upper(st), ME.message)}];
         end
     end
 
