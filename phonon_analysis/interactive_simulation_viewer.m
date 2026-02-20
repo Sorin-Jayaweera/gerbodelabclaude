@@ -122,6 +122,7 @@ S.params          = struct();   % sim params per sim type
 S.cache           = struct();   % Cache: key = "simtype_freqidx_startpct_endpct"
 S.kymo_cache      = struct();   % Pre-computed kymographs
 S.x0_cache        = struct();   % Pre-computed equilibrium positions
+S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scaling
 % UI handles
 S.fig             = fig;
 S.cb_sims         = cb_sims;
@@ -364,6 +365,7 @@ function cb_load(fig, force_reload)
             S.params.(st) = cached.params;
             S.x0_cache.(st) = cached.x0;
             S.kymo_cache.(st) = cached.kymo;
+            S.ymax_cache.(st) = cached.ymax;
             max_frames = max(max_frames, size(cached.xyz, 3));
             lines_out{end+1} = sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3));
             continue;
@@ -404,12 +406,17 @@ function cb_load(fig, force_reload)
             x0 = mean(xyz(:,1,1:n_eq), 3);
             S.x0_cache.(st) = x0;
 
+            % Pre-compute global max displacement for consistent y-axis
+            all_dx = squeeze(xyz(:,1,:)) - x0;  % [n_particles x n_frames]
+            global_ymax = max(0.5, max(abs(all_dx(:))) * 1.1);
+            S.ymax_cache.(st) = global_ymax;
+
             % Pre-compute kymograph
             kymo = compute_kymograph_fast(xyz, x0, sim_p.width);
             S.kymo_cache.(st) = kymo;
 
             % Store in cache
-            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', x0, 'kymo', kymo);
+            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', x0, 'kymo', kymo, 'ymax', global_ymax);
 
             max_frames = max(max_frames, n_frames);
             lines_out{end+1} = sprintf('%s: %d/%d fr', upper(st), n_frames, n_total);
@@ -440,17 +447,23 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
         if exist(par_path, 'file')
             pd = load(par_path);
             sim_params = pd.sim_params;
+            fprintf('  Params loaded: width=%d, height=%d\n', sim_params.width, sim_params.height);
+        else
+            fprintf('  No params file, using defaults\n');
         end
 
         % Load plist
+        fprintf('  Loading plist from: %s\n', plist_path);
         ld = load(plist_path, 'plist');
         plist = ld.plist;
+        fprintf('  plist size: %d x %d\n', size(plist, 1), size(plist, 2));
         clear ld;  % Free memory immediately
 
         % Get frame IDs
         frame_col = plist(:, 4);
         all_frame_ids = unique(frame_col);
         n_total = length(all_frame_ids);
+        fprintf('  Total frames: %d, frame ID range: %.1f to %.1f\n', n_total, min(all_frame_ids), max(all_frame_ids));
 
         % Calculate frame range
         first_idx = max(1, round(start_pct/100 * n_total) + 1);
@@ -461,9 +474,18 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
 
         frame_ids = all_frame_ids(first_idx:last_idx);
         n_frames = length(frame_ids);
+        fprintf('  Loading frames %d to %d (%d frames)\n', first_idx, last_idx, n_frames);
 
-        % Count particles in first frame to allocate
-        n_particles = sum(frame_col == frame_ids(1));
+        % Count particles in each frame to check consistency
+        particles_per_frame = zeros(n_frames, 1);
+        for ff = 1:n_frames
+            particles_per_frame(ff) = sum(frame_col == frame_ids(ff));
+        end
+        fprintf('  Particles per frame: min=%d, max=%d, first=%d\n', ...
+            min(particles_per_frame), max(particles_per_frame), particles_per_frame(1));
+
+        % Use first frame's particle count
+        n_particles = particles_per_frame(1);
         xyz = zeros(n_particles, 3, n_frames);
 
         % Extract frames - handle variable particle counts safely
@@ -471,14 +493,21 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
             mask = (frame_col == frame_ids(ff));
             frame_data = plist(mask, 1:3);
             n_in_frame = size(frame_data, 1);
-            % Use minimum to avoid index errors if particle count varies
             n_use = min(n_in_frame, n_particles);
-            xyz(1:n_use, :, ff) = frame_data(1:n_use, :);
+            if n_use > 0
+                xyz(1:n_use, :, ff) = frame_data(1:n_use, :);
+            end
+            if n_in_frame ~= n_particles && ff <= 5
+                fprintf('  Frame %d: expected %d particles, got %d\n', ff, n_particles, n_in_frame);
+            end
         end
 
         clear plist frame_col;
+        fprintf('  Successfully loaded xyz: %d x %d x %d\n', size(xyz,1), size(xyz,2), size(xyz,3));
 
     catch ME
+        fprintf('  ERROR: %s\n', ME.message);
+        fprintf('  Stack: %s\n', ME.stack(1).name);
         warning('Load error: %s', ME.message);
         xyz = [];
     end
@@ -551,7 +580,8 @@ function render(fig)
                 draw_particles(ax, xyz, fr, W, H);
             case 'wavefront'
                 x0 = S.x0_cache.(st);
-                draw_wavefront_fast(ax, xyz, fr, W, x0);
+                ymax = S.ymax_cache.(st);
+                draw_wavefront_fast(ax, xyz, fr, W, x0, ymax);
             case 'kymograph'
                 kymo = S.kymo_cache.(st);
                 draw_kymograph_fast(ax, kymo, W);
@@ -568,7 +598,7 @@ function draw_particles(ax, xyz, fr, W, H)
     set(ax,'Color','k'); hold(ax,'off');
 end
 
-function draw_wavefront_fast(ax, xyz, fr, W, x0)
+function draw_wavefront_fast(ax, xyz, fr, W, x0, global_ymax)
     cla(ax); hold(ax,'on');
     x  = xyz(:,1,fr);
     dx = x - x0;
@@ -590,8 +620,8 @@ function draw_wavefront_fast(ax, xyz, fr, W, x0)
     plot(ax, ctrs, avg_dx, 'c-', 'LineWidth', 2);
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
     xlim(ax,[0 W]);
-    ymax = max(0.5, max(abs(avg_dx)) * 1.5);
-    ylim(ax, [-ymax, ymax]);
+    % Use global max for consistent y-axis across all frames
+    ylim(ax, [-global_ymax, global_ymax]);
     xlabel(ax,'X position (px)'); ylabel(ax,'Displacement (px)');
     set(ax,'Color','k');
     % Set plot box aspect ratio so y variations are visible (3:1 width:height)
