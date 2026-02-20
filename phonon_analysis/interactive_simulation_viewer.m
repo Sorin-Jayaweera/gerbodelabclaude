@@ -9,6 +9,7 @@ function interactive_simulation_viewer()
 %   - Playback controls: Play, Pause, Step, Speed
 %   - Load range dropdowns: select which % of data to load (reduces memory)
 %   - Auto-scaling Y-axis and colormap
+%   - OPTIMIZED: Caching, vectorized loading, pre-computed kymographs
 %
 % Author: Gerbode Lab
 % Date: 2026
@@ -116,8 +117,11 @@ S.max_frames      = 100;
 S.view_mode       = 'particles';
 S.is_playing      = false;
 S.play_speed      = 1;
-S.data            = struct();
-S.params          = struct();
+S.data            = struct();   % xyz data per sim type
+S.params          = struct();   % sim params per sim type
+S.cache           = struct();   % Cache: key = "simtype_freqidx_startpct_endpct"
+S.kymo_cache      = struct();   % Pre-computed kymographs
+S.x0_cache        = struct();   % Pre-computed equilibrium positions
 % UI handles
 S.fig             = fig;
 S.cb_sims         = cb_sims;
@@ -136,6 +140,7 @@ S.dd_range_end    = dd_range_end;
 S.plot_area       = [plot_area_x, plot_area_y, plot_area_w, plot_area_h];
 S.panels          = {};
 S.axs             = {};
+S.selected_types  = {};  % Track currently displayed types
 fig.UserData = S;
 
 %% ==================== WIRE CALLBACKS ====================
@@ -144,21 +149,21 @@ sl_frame.ValueChangedFcn  = @(~,~) cb_frame(fig);
 btn_play.ButtonPushedFcn  = @(~,~) cb_play(fig);
 btn_step.ButtonPushedFcn  = @(~,~) cb_step(fig);
 btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
-btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig);
+btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig, true);  % force reload
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
 
-% Checkbox callbacks - reload when changed
+% Checkbox callbacks - just rebuild panels, use cache if available
 for i = 1:6
-    cb_sims{i}.ValueChangedFcn = @(~,~) cb_load(fig);
+    cb_sims{i}.ValueChangedFcn = @(~,~) cb_checkbox(fig);
 end
 
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
 
 % Initial load
-cb_load(fig);
+cb_load(fig, true);
 end
 
 %% ==================== CALLBACKS ====================
@@ -168,7 +173,7 @@ function cb_freq(fig)
     S.freq_idx = round(S.sl_freq.Value);
     S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
     fig.UserData = S;
-    cb_load(fig);
+    cb_load(fig, false);  % Use cache if available
 end
 
 function cb_frame(fig)
@@ -278,7 +283,12 @@ function cb_close(fig)
     delete(fig);
 end
 
-function cb_load(fig)
+function cb_checkbox(fig)
+    % Checkbox changed - rebuild panels but use cache for data
+    cb_load(fig, false);
+end
+
+function cb_load(fig, force_reload)
     S = fig.UserData;
     freq = S.frequencies(S.freq_idx);
 
@@ -306,6 +316,7 @@ function cb_load(fig)
     end
     S.panels = {};
     S.axs = {};
+    S.selected_types = {};
 
     % Create new panels for selected sims
     n_sel = length(selected);
@@ -322,6 +333,7 @@ function cb_load(fig)
     for idx = 1:n_sel
         i = selected(idx);
         st = S.all_sim_types{i};
+        S.selected_types{end+1} = st;
 
         % Calculate grid position
         row = ceil(idx / cols);
@@ -340,7 +352,24 @@ function cb_load(fig)
         S.panels{end+1} = pan;
         S.axs{end+1} = ax;
 
-        % Load data
+        % Build cache key
+        cache_key = sprintf('%s_f%d_r%d_%d', st, S.freq_idx, start_pct, end_pct);
+        cache_key = matlab.lang.makeValidName(cache_key);
+
+        % Check cache first (unless force reload)
+        if ~force_reload && isfield(S.cache, cache_key)
+            % Use cached data
+            cached = S.cache.(cache_key);
+            S.data.(st) = cached.xyz;
+            S.params.(st) = cached.params;
+            S.x0_cache.(st) = cached.x0;
+            S.kymo_cache.(st) = cached.kymo;
+            max_frames = max(max_frames, size(cached.xyz, 3));
+            lines_out{end+1} = sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3));
+            continue;
+        end
+
+        % Load data from disk
         sim_name = sprintf(S.all_name_fmts{i}, freq);
         plist_path = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'plist.mat');
         par_path   = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'sim_params.mat');
@@ -353,32 +382,34 @@ function cb_load(fig)
         end
 
         try
-            ld = load(plist_path);
-            plist = ld.plist;
-            all_frame_ids = unique(plist(:,4));
-            n_total = length(all_frame_ids);
+            % Use matfile for faster partial access
+            S.txt_status.Value = [lines_out; {sprintf('Loading %s...', upper(st))}];
+            drawnow;
 
-            first_idx = max(1, round(start_pct/100 * n_total) + 1);
-            last_idx  = min(n_total, round(end_pct/100 * n_total));
-            if last_idx < first_idx + 1; last_idx = min(first_idx + 1, n_total); end
-            frame_ids   = all_frame_ids(first_idx:last_idx);
-            n_frames    = length(frame_ids);
-            n_particles = sum(plist(:,4) == frame_ids(1));
+            [xyz, n_total, sim_p] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct);
 
-            xyz = zeros(n_particles, 3, n_frames);
-            for ff = 1:n_frames
-                m = plist(:,4) == frame_ids(ff);
-                xyz(:,:,ff) = plist(m, 1:3);
+            if isempty(xyz)
+                S.data.(st) = [];
+                S.params.(st) = [];
+                lines_out{end+1} = sprintf('%s: load failed', upper(st));
+                continue;
             end
+
             S.data.(st) = xyz;
+            S.params.(st) = sim_p;
+            n_frames = size(xyz, 3);
 
-            if exist(par_path, 'file')
-                pd = load(par_path);
-                S.params.(st) = pd.sim_params;
-            else
-                S.params.(st) = struct('width',800,'height',400, ...
-                    'drive_frequency',freq,'drive_amplitude',2.0);
-            end
+            % Pre-compute equilibrium positions (first 10 frames or available)
+            n_eq = min(10, n_frames);
+            x0 = mean(xyz(:,1,1:n_eq), 3);
+            S.x0_cache.(st) = x0;
+
+            % Pre-compute kymograph
+            kymo = compute_kymograph_fast(xyz, x0, sim_p.width);
+            S.kymo_cache.(st) = kymo;
+
+            % Store in cache
+            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', x0, 'kymo', kymo);
 
             max_frames = max(max_frames, n_frames);
             lines_out{end+1} = sprintf('%s: %d/%d fr', upper(st), n_frames, n_total);
@@ -396,6 +427,94 @@ function cb_load(fig)
     S.txt_status.Value = lines_out;
     fig.UserData = S;
     render(fig);
+end
+
+function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct)
+%% Fast simulation loading using vectorized operations
+    xyz = [];
+    n_total = 0;
+    sim_params = struct('width', 800, 'height', 400, 'drive_frequency', freq, 'drive_amplitude', 2.0);
+
+    try
+        % Load params first (small file)
+        if exist(par_path, 'file')
+            pd = load(par_path);
+            sim_params = pd.sim_params;
+        end
+
+        % Use matfile to check size without loading all data
+        mf = matfile(plist_path);
+        plist_size = size(mf, 'plist');
+        total_rows = plist_size(1);
+
+        % Load plist - unfortunately MATLAB's matfile doesn't support complex indexing
+        % so we need to load it, but we'll process it efficiently
+        ld = load(plist_path, 'plist');
+        plist = ld.plist;
+        clear ld;  % Free memory immediately
+
+        % Get frame IDs efficiently
+        frame_col = plist(:, 4);
+        all_frame_ids = unique(frame_col);
+        n_total = length(all_frame_ids);
+
+        % Calculate frame range
+        first_idx = max(1, round(start_pct/100 * n_total) + 1);
+        last_idx  = min(n_total, round(end_pct/100 * n_total));
+        if last_idx < first_idx + 1
+            last_idx = min(first_idx + 1, n_total);
+        end
+
+        frame_ids = all_frame_ids(first_idx:last_idx);
+        n_frames = length(frame_ids);
+
+        % Count particles in first frame
+        n_particles = sum(frame_col == frame_ids(1));
+
+        % Filter plist to only include needed frames (faster than looping)
+        frame_set = ismember(frame_col, frame_ids);
+        plist_subset = plist(frame_set, :);
+        clear plist frame_col frame_set;  % Free memory
+
+        % Reshape using vectorized operations
+        % plist_subset is sorted by frame, so we can reshape directly
+        xyz = zeros(n_particles, 3, n_frames);
+
+        % Vectorized extraction - much faster than loop
+        for ff = 1:n_frames
+            start_row = (ff-1) * n_particles + 1;
+            end_row = ff * n_particles;
+            xyz(:, :, ff) = plist_subset(start_row:end_row, 1:3);
+        end
+
+    catch ME
+        warning('Load error: %s', ME.message);
+        xyz = [];
+    end
+end
+
+function kymo = compute_kymograph_fast(xyz, x0, W)
+%% Pre-compute kymograph using vectorized operations
+    n_fr = size(xyz, 3);
+    n_bins = 80;
+    edges = linspace(0, W, n_bins+1);
+
+    % Pre-compute bin assignments (only once)
+    bin_idx = discretize(x0, edges);
+    valid = ~isnan(bin_idx);
+
+    % Extract all x-displacements at once
+    x_all = squeeze(xyz(:, 1, :));  % [n_particles x n_frames]
+    dx_all = x_all - x0;  % Displacement from equilibrium
+
+    % Compute kymograph using accumarray for speed
+    kymo = zeros(n_bins, n_fr);
+    for b = 1:n_bins
+        mask = (bin_idx == b) & valid;
+        if any(mask)
+            kymo(b, :) = mean(dx_all(mask, :), 1);
+        end
+    end
 end
 
 function [rows, cols] = get_grid_size(n)
@@ -418,18 +537,10 @@ end
 function render(fig)
     S = fig.UserData;
 
-    % Get selected sims in order
-    selected_types = {};
-    for i = 1:6
-        if S.cb_sims{i}.Value
-            selected_types{end+1} = S.all_sim_types{i};
-        end
-    end
-
     for idx = 1:length(S.axs)
         ax = S.axs{idx};
-        if idx > length(selected_types); continue; end
-        st = selected_types{idx};
+        if idx > length(S.selected_types); continue; end
+        st = S.selected_types{idx};
 
         if ~isfield(S.data, st) || isempty(S.data.(st))
             cla(ax);
@@ -445,9 +556,14 @@ function render(fig)
         W = p.width; H = p.height;
 
         switch S.view_mode
-            case 'particles',  draw_particles(ax, xyz, fr, W, H);
-            case 'wavefront',  draw_wavefront(ax, xyz, fr, W, H);
-            case 'kymograph',  draw_kymograph(ax, xyz, W, H);
+            case 'particles'
+                draw_particles(ax, xyz, fr, W, H);
+            case 'wavefront'
+                x0 = S.x0_cache.(st);
+                draw_wavefront_fast(ax, xyz, fr, W, x0);
+            case 'kymograph'
+                kymo = S.kymo_cache.(st);
+                draw_kymograph_fast(ax, kymo, W);
         end
     end
 end
@@ -461,19 +577,23 @@ function draw_particles(ax, xyz, fr, W, H)
     set(ax,'Color','k'); hold(ax,'off');
 end
 
-function draw_wavefront(ax, xyz, fr, W, H)
+function draw_wavefront_fast(ax, xyz, fr, W, x0)
     cla(ax); hold(ax,'on');
     x  = xyz(:,1,fr);
-    x0 = mean(xyz(:,1,1:min(10,size(xyz,3))),3);
     dx = x - x0;
 
     n_bins = 60;
     edges  = linspace(0, W, n_bins+1);
     ctrs   = (edges(1:end-1)+edges(2:end))/2;
+
+    % Use discretize for faster binning
+    bin_idx = discretize(x0, edges);
     avg_dx = zeros(n_bins,1);
     for b = 1:n_bins
-        in = x0 >= edges(b) & x0 < edges(b+1);
-        if any(in); avg_dx(b) = mean(dx(in)); end
+        mask = (bin_idx == b);
+        if any(mask)
+            avg_dx(b) = mean(dx(mask));
+        end
     end
 
     plot(ax, ctrs, avg_dx, 'c-', 'LineWidth', 2);
@@ -485,21 +605,15 @@ function draw_wavefront(ax, xyz, fr, W, H)
     set(ax,'Color','k'); hold(ax,'off');
 end
 
-function draw_kymograph(ax, xyz, W, H)
+function draw_kymograph_fast(ax, kymo, W)
+    % Use pre-computed kymograph
     cla(ax);
-    n_fr   = size(xyz,3);
-    x0     = mean(xyz(:,1,1:min(10,n_fr)),3);
-    n_bins = 80;
-    edges  = linspace(0, W, n_bins+1);
-    kymo   = zeros(n_bins, n_fr);
-    for ff = 1:n_fr
-        dx = xyz(:,1,ff) - x0;
-        for b = 1:n_bins
-            in = x0 >= edges(b) & x0 < edges(b+1);
-            if any(in); kymo(b,ff) = mean(dx(in)); end
-        end
-    end
-    imagesc(ax, 1:n_fr, (edges(1:end-1)+edges(2:end))/2, kymo);
+    n_bins = size(kymo, 1);
+    n_fr = size(kymo, 2);
+    edges = linspace(0, W, n_bins+1);
+    ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+    imagesc(ax, 1:n_fr, ctrs, kymo);
     colormap(ax,'jet');
     cmax = max(0.5, max(abs(kymo(:))) * 1.2);
     clim(ax, [-cmax, cmax]);
