@@ -412,7 +412,10 @@ function draw_wavefront(ax, xyz, fr, W, H)
 
     plot(ax, ctrs, avg_dx, 'c-', 'LineWidth', 2);
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
-    xlim(ax,[0 W]); ylim(ax,[-3 3]);
+    xlim(ax,[0 W]);
+    % Auto-scale Y to data with minimum range of 0.5
+    ymax = max(0.5, max(abs(avg_dx)) * 1.5);
+    ylim(ax, [-ymax, ymax]);
     xlabel(ax,'X position (px)'); ylabel(ax,'Displacement (px)');
     set(ax,'Color','k'); hold(ax,'off');
 end
@@ -432,7 +435,10 @@ function draw_kymograph(ax, xyz, W, H)
         end
     end
     imagesc(ax, 1:n_fr, (edges(1:end-1)+edges(2:end))/2, kymo);
-    colormap(ax,'jet'); clim(ax,[-2 2]);
+    colormap(ax,'jet');
+    % Auto-scale color to data with minimum range of 0.5
+    cmax = max(0.5, max(abs(kymo(:))) * 1.2);
+    clim(ax, [-cmax, cmax]);
     xlabel(ax,'Frame'); ylabel(ax,'X position (px)');
     set(ax,'YDir','normal');
 end
