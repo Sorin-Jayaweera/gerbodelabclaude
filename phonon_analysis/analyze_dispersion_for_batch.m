@@ -26,12 +26,20 @@ if ~exist(output_folder, 'dir')
     mkdir(output_folder);
 end
 
-%% Find completed simulations
-% Handle different naming conventions
-if strcmp(domain_type, 'topdriven')
-    sim_pattern = 'topdriven_f*_a*.0';
-else
-    sim_pattern = 'sinusoidal_f*_a*';
+%% Find completed simulations - pattern depends on domain type
+switch domain_type
+    case 'topdriven'
+        sim_pattern = 'topdriven_f*_a*';
+        freq_regex = 'topdriven_f([\d.]+)_a';
+    case 'frust_side'
+        sim_pattern = 'frust_f*_a*';
+        freq_regex = 'frust_f([\d.]+)_a';
+    case 'frust_top'
+        sim_pattern = 'frusttop_f*_a*';
+        freq_regex = 'frusttop_f([\d.]+)_a';
+    otherwise  % chevron, stripe, random
+        sim_pattern = 'sinusoidal_f*_a*';
+        freq_regex = 'sinusoidal_f([\d.]+)_a';
 end
 
 sim_dirs = dir(fullfile(simulations_folder, sim_pattern));
@@ -40,12 +48,7 @@ sim_paths = {};
 
 for i = 1:length(sim_dirs)
     folder_name = sim_dirs(i).name;
-    % Extract frequency
-    if strcmp(domain_type, 'topdriven')
-        tokens = regexp(folder_name, 'topdriven_f([\d.]+)_a', 'tokens');
-    else
-        tokens = regexp(folder_name, 'sinusoidal_f([\d.]+)_a', 'tokens');
-    end
+    tokens = regexp(folder_name, freq_regex, 'tokens');
 
     if ~isempty(tokens)
         f = str2double(tokens{1}{1});
