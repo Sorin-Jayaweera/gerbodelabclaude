@@ -442,12 +442,26 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
     n_total = 0;
     sim_params = struct('width', 800, 'height', 400, 'drive_frequency', freq, 'drive_amplitude', 2.0);
 
+    fprintf('  Starting load...\n');
+
     try
         % Load params first (small file)
+        fprintf('  Checking params file: %s\n', par_path);
         if exist(par_path, 'file')
+            fprintf('  Params file exists, loading...\n');
             pd = load(par_path);
-            sim_params = pd.sim_params;
-            fprintf('  Params loaded: width=%d, height=%d\n', sim_params.width, sim_params.height);
+            fprintf('  Params loaded, fields: %s\n', strjoin(fieldnames(pd), ', '));
+            if isfield(pd, 'sim_params')
+                sim_params = pd.sim_params;
+                fprintf('  sim_params fields: %s\n', strjoin(fieldnames(sim_params), ', '));
+                if isfield(sim_params, 'width') && isfield(sim_params, 'height')
+                    fprintf('  Params: width=%d, height=%d\n', sim_params.width, sim_params.height);
+                else
+                    fprintf('  WARNING: sim_params missing width/height\n');
+                end
+            else
+                fprintf('  WARNING: No sim_params field in params file\n');
+            end
         else
             fprintf('  No params file, using defaults\n');
         end
@@ -507,7 +521,10 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
 
     catch ME
         fprintf('  ERROR: %s\n', ME.message);
-        fprintf('  Stack: %s\n', ME.stack(1).name);
+        fprintf('  Error ID: %s\n', ME.identifier);
+        for k = 1:length(ME.stack)
+            fprintf('  Stack[%d]: %s line %d\n', k, ME.stack(k).name, ME.stack(k).line);
+        end
         warning('Load error: %s', ME.message);
         xyz = [];
     end
