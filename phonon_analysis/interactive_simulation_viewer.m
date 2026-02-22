@@ -64,39 +64,44 @@ btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  618 66 24], 'Backg
 btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [78 618 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
 btn_kymo = uibutton(cp, 'Text', 'Kymograph', 'Position', [148 618 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-% playback
-uilabel(cp, 'Text', 'Playback:', 'Position', [8 585 200 18], 'FontColor', 'w');
-btn_play  = uibutton(cp, 'Text', '▶ Play',  'Position', [8  558 100 24], 'BackgroundColor', [0.3 0.5 0.3]);
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [112 558 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [8  530 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+% axis selector for wavefront/kymograph
+uilabel(cp, 'Text', 'Axis:', 'Position', [8 590 40 18], 'FontColor', 'w');
+dd_axis = uidropdown(cp, 'Items', {'Auto', 'X axis', 'Y axis'}, 'Value', 'Auto', ...
+    'Position', [50 588 100 24]);
 
-uilabel(cp, 'Text', 'Frame:', 'Position', [8 500 200 18], 'FontColor', 'w');
-sl_frame  = uislider(cp, 'Position', [8 470 200 3], 'Limits', [1 100], 'Value', 1, ...
+% playback
+uilabel(cp, 'Text', 'Playback:', 'Position', [8 558 200 18], 'FontColor', 'w');
+btn_play  = uibutton(cp, 'Text', '▶ Play',  'Position', [8  531 100 24], 'BackgroundColor', [0.3 0.5 0.3]);
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [112 531 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [8  503 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+
+uilabel(cp, 'Text', 'Frame:', 'Position', [8 473 200 18], 'FontColor', 'w');
+sl_frame  = uislider(cp, 'Position', [8 443 200 3], 'Limits', [1 100], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
-lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 440 200 24], ...
+lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 413 200 24], ...
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
-uilabel(cp, 'Text', 'Speed:', 'Position', [8 410 60 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Speed:', 'Position', [8 383 60 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.25x','0.5x','1x','2x','4x'}, 'Value', '1x', ...
-    'Position', [70 408 80 24]);
+    'Position', [70 381 80 24]);
 
 % ---- load range ----
-uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 375 200 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 348 200 18], 'FontColor', 'w');
 dd_range_start = uidropdown(cp, ...
     'Items', {'0%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
-    'Value', '0%', 'Position', [8 350 90 24]);
-uilabel(cp, 'Text', 'to', 'Position', [102 353 18 18], 'FontColor', 'w');
+    'Value', '0%', 'Position', [8 323 90 24]);
+uilabel(cp, 'Text', 'to', 'Position', [102 326 18 18], 'FontColor', 'w');
 dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
-    'Value', '20%', 'Position', [122 350 90 24]);
+    'Value', '20%', 'Position', [122 323 90 24]);
 
 % ---- load button ----
-btn_load = uibutton(cp, 'Text', 'Load Selected', 'Position', [8 310 204 30], ...
+btn_load = uibutton(cp, 'Text', 'Load Selected', 'Position', [8 283 204 30], ...
     'BackgroundColor', [0.2 0.4 0.6]);
 
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 280 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 120 204 158], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 253 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 95 204 156], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -123,6 +128,7 @@ S.cache           = struct();   % Cache: key = "simtype_freqidx_startpct_endpct"
 S.kymo_cache      = struct();   % Pre-computed kymographs
 S.x0_cache        = struct();   % Pre-computed equilibrium positions
 S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scaling
+S.topdriven_cache = struct();   % Whether sim is top-driven (uses Y axis)
 % UI handles
 S.fig             = fig;
 S.cb_sims         = cb_sims;
@@ -137,6 +143,7 @@ S.btn_kymo        = btn_kymo;
 S.txt_status      = txt_status;
 S.dd_range_start  = dd_range_start;
 S.dd_range_end    = dd_range_end;
+S.dd_axis         = dd_axis;
 % Plot area bounds
 S.plot_area       = [plot_area_x, plot_area_y, plot_area_w, plot_area_h];
 S.panels          = {};
@@ -155,6 +162,7 @@ btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
+dd_axis.ValueChangedFcn   = @(~,~) render(fig);  % Re-render with new axis
 
 % Checkboxes do NOT auto-load - user clicks Load when ready
 % (no ValueChangedFcn set)
@@ -360,6 +368,7 @@ function cb_load(fig, force_reload)
             S.x0_cache.(st) = cached.x0;
             S.kymo_cache.(st) = cached.kymo;
             S.ymax_cache.(st) = cached.ymax;
+            S.topdriven_cache.(st) = cached.is_topdriven;
             max_frames = max(max_frames, size(cached.xyz, 3));
             lines_out = [lines_out; {sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3))}];
             continue;
@@ -395,22 +404,36 @@ function cb_load(fig, force_reload)
             S.params.(st) = sim_p;
             n_frames = size(xyz, 3);
 
+            % Determine if this is a top-driven sim (wave in Y direction)
+            is_topdriven = strcmp(st, 'topdriven') || strcmp(st, 'frust_top');
+            S.topdriven_cache.(st) = is_topdriven;
+
             % Pre-compute equilibrium positions (first 10 frames or available)
             n_eq = min(10, n_frames);
-            x0 = mean(xyz(:,1,1:n_eq), 3);
-            S.x0_cache.(st) = x0;
+            if is_topdriven
+                % Top-driven: use Y axis (column 2)
+                pos0 = mean(xyz(:,2,1:n_eq), 3);
+                all_dpos = squeeze(xyz(:,2,:)) - pos0;
+                axis_len = sim_p.height;
+            else
+                % Side-driven: use X axis (column 1)
+                pos0 = mean(xyz(:,1,1:n_eq), 3);
+                all_dpos = squeeze(xyz(:,1,:)) - pos0;
+                axis_len = sim_p.width;
+            end
+            S.x0_cache.(st) = pos0;
 
             % Pre-compute global max displacement for consistent y-axis
-            all_dx = squeeze(xyz(:,1,:)) - x0;  % [n_particles x n_frames]
-            global_ymax = max(0.5, max(abs(all_dx(:))) * 1.1);
+            global_ymax = max(0.5, max(abs(all_dpos(:))) * 1.1);
             S.ymax_cache.(st) = global_ymax;
 
             % Pre-compute kymograph
-            kymo = compute_kymograph_fast(xyz, x0, sim_p.width);
+            kymo = compute_kymograph_fast(xyz, pos0, axis_len, is_topdriven);
             S.kymo_cache.(st) = kymo;
 
             % Store in cache
-            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', x0, 'kymo', kymo, 'ymax', global_ymax);
+            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', pos0, ...
+                'kymo', kymo, 'ymax', global_ymax, 'is_topdriven', is_topdriven);
 
             max_frames = max(max_frames, n_frames);
             lines_out = [lines_out; {sprintf('%s: %d/%d fr', upper(st), n_frames, n_total)}];
@@ -524,26 +547,30 @@ function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path,
     end
 end
 
-function kymo = compute_kymograph_fast(xyz, x0, W)
+function kymo = compute_kymograph_fast(xyz, pos0, axis_len, is_topdriven)
 %% Pre-compute kymograph using vectorized operations
     n_fr = size(xyz, 3);
     n_bins = 80;
-    edges = linspace(0, W, n_bins+1);
+    edges = linspace(0, axis_len, n_bins+1);
 
     % Pre-compute bin assignments (only once)
-    bin_idx = discretize(x0, edges);
+    bin_idx = discretize(pos0, edges);
     valid = ~isnan(bin_idx);
 
-    % Extract all x-displacements at once
-    x_all = squeeze(xyz(:, 1, :));  % [n_particles x n_frames]
-    dx_all = x_all - x0;  % Displacement from equilibrium
+    % Top-driven: use Y, Side-driven: use X
+    if is_topdriven
+        pos_all = squeeze(xyz(:, 2, :));  % [n_particles x n_frames]
+    else
+        pos_all = squeeze(xyz(:, 1, :));  % [n_particles x n_frames]
+    end
+    dpos_all = pos_all - pos0;  % Displacement from equilibrium
 
-    % Compute kymograph using accumarray for speed
+    % Compute kymograph
     kymo = zeros(n_bins, n_fr);
     for b = 1:n_bins
         mask = (bin_idx == b) & valid;
         if any(mask)
-            kymo(b, :) = mean(dx_all(mask, :), 1);
+            kymo(b, :) = mean(dpos_all(mask, :), 1);
         end
     end
 end
@@ -586,16 +613,36 @@ function render(fig)
         p = S.params.(st);
         W = p.width; H = p.height;
 
+        % Get axis setting from dropdown
+        axis_setting = S.dd_axis.Value;
+        auto_topdriven = S.topdriven_cache.(st);  % Auto: Y for top-driven, X for side-driven
+
+        % Determine which axis to use
+        switch axis_setting
+            case 'Auto'
+                use_y_axis = auto_topdriven;
+            case 'X axis'
+                use_y_axis = false;
+            case 'Y axis'
+                use_y_axis = true;
+        end
+
+        if use_y_axis
+            axis_len = H;
+        else
+            axis_len = W;
+        end
+
         switch S.view_mode
             case 'particles'
                 draw_particles(ax, xyz, fr, W, H);
             case 'wavefront'
-                x0 = S.x0_cache.(st);
-                ymax = S.ymax_cache.(st);
-                draw_wavefront_fast(ax, xyz, fr, W, x0, ymax);
+                % Compute wavefront with user-selected axis (may differ from cached)
+                draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y_axis);
             case 'kymograph'
+                % Kymograph uses pre-computed data (based on auto-detected axis)
                 kymo = S.kymo_cache.(st);
-                draw_kymograph_fast(ax, kymo, W);
+                draw_kymograph_fast(ax, kymo, axis_len, auto_topdriven);
         end
     end
 end
@@ -609,51 +656,108 @@ function draw_particles(ax, xyz, fr, W, H)
     set(ax,'Color','k'); hold(ax,'off');
 end
 
-function draw_wavefront_fast(ax, xyz, fr, W, x0, global_ymax)
+function draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y_axis)
+    % Compute wavefront on-the-fly with user-selected axis
     cla(ax); hold(ax,'on');
-    x  = xyz(:,1,fr);
-    dx = x - x0;
+
+    n_frames = size(xyz, 3);
+    n_eq = min(10, n_frames);
+
+    if use_y_axis
+        pos = xyz(:,2,fr);  % Y position
+        pos0 = mean(xyz(:,2,1:n_eq), 3);  % Equilibrium Y
+        axis_label = 'Y position (px)';
+    else
+        pos = xyz(:,1,fr);  % X position
+        pos0 = mean(xyz(:,1,1:n_eq), 3);  % Equilibrium X
+        axis_label = 'X position (px)';
+    end
+    dpos = pos - pos0;
 
     n_bins = 60;
-    edges  = linspace(0, W, n_bins+1);
+    edges  = linspace(0, axis_len, n_bins+1);
     ctrs   = (edges(1:end-1)+edges(2:end))/2;
 
-    % Use discretize for faster binning
-    bin_idx = discretize(x0, edges);
-    avg_dx = zeros(n_bins,1);
+    bin_idx = discretize(pos0, edges);
+    avg_dpos = zeros(n_bins,1);
     for b = 1:n_bins
         mask = (bin_idx == b);
         if any(mask)
-            avg_dx(b) = mean(dx(mask));
+            avg_dpos(b) = mean(dpos(mask));
         end
     end
 
-    plot(ax, ctrs, avg_dx, 'c-', 'LineWidth', 2);
+    % Compute y-max for this axis
+    if use_y_axis
+        all_dpos = squeeze(xyz(:,2,:)) - pos0;
+    else
+        all_dpos = squeeze(xyz(:,1,:)) - pos0;
+    end
+    global_ymax = max(0.5, max(abs(all_dpos(:))) * 1.1);
+
+    plot(ax, ctrs, avg_dpos, 'c-', 'LineWidth', 2);
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
-    xlim(ax,[0 W]);
-    % Use global max for consistent y-axis across all frames
+    xlim(ax,[0 axis_len]);
     ylim(ax, [-global_ymax, global_ymax]);
-    xlabel(ax,'X position (px)'); ylabel(ax,'Displacement (px)');
+    xlabel(ax, axis_label); ylabel(ax,'Displacement (px)');
     set(ax,'Color','k');
-    % Set plot box aspect ratio so y variations are visible (3:1 width:height)
-    pbaspect(ax, [3 1 1]);
     hold(ax,'off');
 end
 
-function draw_kymograph_fast(ax, kymo, W)
+function draw_wavefront_fast(ax, xyz, fr, axis_len, pos0, global_ymax, is_topdriven)
+    cla(ax); hold(ax,'on');
+
+    % Top-driven: use Y position and Y displacement
+    % Side-driven: use X position and X displacement
+    if is_topdriven
+        pos = xyz(:,2,fr);  % Y position
+        axis_label = 'Y position (px)';
+    else
+        pos = xyz(:,1,fr);  % X position
+        axis_label = 'X position (px)';
+    end
+    dpos = pos - pos0;
+
+    n_bins = 60;
+    edges  = linspace(0, axis_len, n_bins+1);
+    ctrs   = (edges(1:end-1)+edges(2:end))/2;
+
+    % Use discretize for faster binning
+    bin_idx = discretize(pos0, edges);
+    avg_dpos = zeros(n_bins,1);
+    for b = 1:n_bins
+        mask = (bin_idx == b);
+        if any(mask)
+            avg_dpos(b) = mean(dpos(mask));
+        end
+    end
+
+    plot(ax, ctrs, avg_dpos, 'c-', 'LineWidth', 2);
+    yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
+    xlim(ax,[0 axis_len]);
+    ylim(ax, [-global_ymax, global_ymax]);
+    xlabel(ax, axis_label); ylabel(ax,'Displacement (px)');
+    set(ax,'Color','k');
+    hold(ax,'off');
+end
+
+function draw_kymograph_fast(ax, kymo, axis_len, is_topdriven)
     % Use pre-computed kymograph
     cla(ax);
     n_bins = size(kymo, 1);
     n_fr = size(kymo, 2);
-    edges = linspace(0, W, n_bins+1);
+    edges = linspace(0, axis_len, n_bins+1);
     ctrs = (edges(1:end-1)+edges(2:end))/2;
 
     imagesc(ax, 1:n_fr, ctrs, kymo);
     colormap(ax,'jet');
     cmax = max(0.5, max(abs(kymo(:))) * 1.2);
     clim(ax, [-cmax, cmax]);
-    xlabel(ax,'Frame'); ylabel(ax,'X position (px)');
+    if is_topdriven
+        ylabel_str = 'Y position (px)';
+    else
+        ylabel_str = 'X position (px)';
+    end
+    xlabel(ax,'Frame'); ylabel(ax, ylabel_str);
     set(ax,'YDir','normal');
-    % Set aspect ratio so kymograph isn't too stretched (2:1 width:height)
-    pbaspect(ax, [2 1 1]);
 end
