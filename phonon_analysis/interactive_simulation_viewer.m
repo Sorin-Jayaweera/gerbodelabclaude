@@ -170,6 +170,7 @@ S.dd_range_end    = dd_range_end;
 S.plot_area       = [plot_area_x, plot_area_y, plot_area_w, plot_area_h];
 S.panels          = {};
 S.axs             = {};
+S.view_configs    = {};  % Store (sim_type, use_y) for each panel
 S.selected_types  = {};  % Track currently displayed types
 fig.UserData = S;
 
@@ -432,6 +433,9 @@ function cb_load(fig, force_reload)
     S.data = struct();       % S.data.(sim_type) = xyz for first/single frequency
     S.params = struct();
     S.multi_freq_data = struct();  % S.multi_freq_data.(sim_type){freq_idx} = xyz
+
+    % Save state before loading loops (so cancel checks get updated state)
+    fig.UserData = S;
 
     % First pass: load all needed simulations for ALL frequencies
     sims_needed = unique(cellfun(@(v) v.sim_idx, selected_views));
