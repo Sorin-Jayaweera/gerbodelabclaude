@@ -145,36 +145,35 @@ S.selected_types  = {};  % Track currently displayed types
 fig.UserData = S;
 
 %% ==================== WIRE CALLBACKS ====================
-sl_freq.ValueChangedFcn   = @(~,~) cb_freq(fig);
+sl_freq.ValueChangedFcn   = @(~,~) cb_freq_label(fig);   % label only, no load
 sl_frame.ValueChangedFcn  = @(~,~) cb_frame(fig);
 btn_play.ButtonPushedFcn  = @(~,~) cb_play(fig);
 btn_step.ButtonPushedFcn  = @(~,~) cb_step(fig);
 btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
-btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig, true);  % force reload
+btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig, true);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
 
-% Checkbox callbacks - just rebuild panels, use cache if available
-for i = 1:6
-    cb_sims{i}.ValueChangedFcn = @(~,~) cb_checkbox(fig);
-end
+% Checkboxes do NOT auto-load - user clicks Load when ready
+% (no ValueChangedFcn set)
 
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
 
-% Initial load
-cb_load(fig, true);
+% Don't auto-load on startup - wait for user to click Load
+S.txt_status.Value = {'Select simulations and click Load'};
+fig.UserData = S;
 end
 
 %% ==================== CALLBACKS ====================
 
-function cb_freq(fig)
+function cb_freq_label(fig)
+    % Just update the frequency label - loading happens on button press
     S = fig.UserData;
     S.freq_idx = round(S.sl_freq.Value);
     S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
     fig.UserData = S;
-    cb_load(fig, false);  % Use cache if available
 end
 
 function cb_frame(fig)
@@ -282,11 +281,6 @@ function cb_close(fig)
     fig.UserData = S;
     pause(0.15);
     delete(fig);
-end
-
-function cb_checkbox(fig)
-    % Checkbox changed - rebuild panels but use cache for data
-    cb_load(fig, false);
 end
 
 function cb_load(fig, force_reload)
