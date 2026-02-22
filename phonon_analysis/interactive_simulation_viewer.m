@@ -38,70 +38,73 @@ cp = uipanel(fig, 'Title', 'Controls', ...
     'Position', [8 8 220 934], ...
     'BackgroundColor', [0.2 0.2 0.2], 'ForegroundColor', 'w');
 
-% ---- simulation checkboxes ----
-uilabel(cp, 'Text', 'Show Simulations:', 'Position', [8 885 200 18], 'FontColor', 'w', 'FontWeight', 'bold');
-cb_sims = cell(6,1);
-cb_labels = {'Chevron (unfrust)', 'Stripe', 'Random', 'Top-driven', 'Frust Side', 'Frust Top'};
+% ---- simulation + axis checkboxes ----
+% Each sim has X and Y checkboxes - check any combination you want
+uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 100 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'X', 'Position', [145 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'Y', 'Position', [175 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
+
+cb_labels = {'Chevron', 'Stripe', 'Random', 'Top-driven', 'Frust Side', 'Frust Top'};
+cb_x = cell(6,1);  % X axis checkboxes
+cb_y = cell(6,1);  % Y axis checkboxes
 for i = 1:6
-    checked = (i <= 4);  % Default: first 4 checked
-    cb_sims{i} = uicheckbox(cp, 'Text', cb_labels{i}, ...
-        'Value', checked, 'Position', [8 885-i*22 200 20], ...
-        'FontColor', 'w');
+    y_pos = 898 - i*20;
+    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 130 18], 'FontColor', 'w');
+    % Default: X checked for first 4 sims
+    cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', (i <= 4), ...
+        'Position', [140 y_pos 25 18], 'FontColor', 'w');
+    cb_y{i} = uicheckbox(cp, 'Text', '', 'Value', false, ...
+        'Position', [170 y_pos 25 18], 'FontColor', 'w');
 end
 
 % frequency slider
-uilabel(cp, 'Text', 'Frequency:', 'Position', [8 738 200 18], 'FontColor', 'w');
-sl_freq = uislider(cp, 'Position', [8 708 200 3], ...
+uilabel(cp, 'Text', 'Frequency:', 'Position', [8 768 200 18], 'FontColor', 'w');
+sl_freq = uislider(cp, 'Position', [8 738 200 3], ...
     'Limits', [1 length(all_frequencies)], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
 lbl_freq = uilabel(cp, 'Text', sprintf('f = %.4f', all_frequencies(1)), ...
-    'Position', [8 678 200 24], 'FontColor', 'cyan', 'FontSize', 13, ...
+    'Position', [8 708 200 24], 'FontColor', 'cyan', 'FontSize', 13, ...
     'FontWeight', 'bold', 'HorizontalAlignment', 'center');
 
 % view mode
-uilabel(cp, 'Text', 'View Mode:', 'Position', [8 645 200 18], 'FontColor', 'w');
-btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  618 66 24], 'BackgroundColor', [0.3 0.6 0.3]);
-btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [78 618 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_kymo = uibutton(cp, 'Text', 'Kymograph', 'Position', [148 618 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
-
-% axis selector for wavefront/kymograph
-uilabel(cp, 'Text', 'Axis:', 'Position', [8 590 40 18], 'FontColor', 'w');
-dd_axis = uidropdown(cp, 'Items', {'Auto', 'X axis', 'Y axis'}, 'Value', 'Auto', ...
-    'Position', [50 588 100 24]);
+uilabel(cp, 'Text', 'View Mode:', 'Position', [8 678 200 18], 'FontColor', 'w');
+btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  651 66 24], 'BackgroundColor', [0.3 0.6 0.3]);
+btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [78 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_kymo = uibutton(cp, 'Text', 'Kymograph', 'Position', [148 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
 % playback
-uilabel(cp, 'Text', 'Playback:', 'Position', [8 558 200 18], 'FontColor', 'w');
-btn_play  = uibutton(cp, 'Text', '▶ Play',  'Position', [8  531 100 24], 'BackgroundColor', [0.3 0.5 0.3]);
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [112 531 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [8  503 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+uilabel(cp, 'Text', 'Playback:', 'Position', [8 618 200 18], 'FontColor', 'w');
+btn_play  = uibutton(cp, 'Text', '▶ Play',  'Position', [8  591 100 24], 'BackgroundColor', [0.3 0.5 0.3]);
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [112 591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [8  563 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-uilabel(cp, 'Text', 'Frame:', 'Position', [8 473 200 18], 'FontColor', 'w');
-sl_frame  = uislider(cp, 'Position', [8 443 200 3], 'Limits', [1 100], 'Value', 1, ...
+uilabel(cp, 'Text', 'Frame:', 'Position', [8 533 200 18], 'FontColor', 'w');
+sl_frame  = uislider(cp, 'Position', [8 503 200 3], 'Limits', [1 100], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
-lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 413 200 24], ...
+lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 473 200 24], ...
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
-uilabel(cp, 'Text', 'Speed:', 'Position', [8 383 60 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Speed:', 'Position', [8 443 60 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.25x','0.5x','1x','2x','4x'}, 'Value', '1x', ...
-    'Position', [70 381 80 24]);
+    'Position', [70 441 80 24]);
 
 % ---- load range ----
-uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 348 200 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 408 200 18], 'FontColor', 'w');
 dd_range_start = uidropdown(cp, ...
     'Items', {'0%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
-    'Value', '0%', 'Position', [8 323 90 24]);
-uilabel(cp, 'Text', 'to', 'Position', [102 326 18 18], 'FontColor', 'w');
+    'Value', '0%', 'Position', [8 383 90 24]);
+uilabel(cp, 'Text', 'to', 'Position', [102 386 18 18], 'FontColor', 'w');
 dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
-    'Value', '20%', 'Position', [122 323 90 24]);
+    'Value', '20%', 'Position', [122 383 90 24]);
 
-% ---- load button ----
-btn_load = uibutton(cp, 'Text', 'Load Selected', 'Position', [8 283 204 30], ...
-    'BackgroundColor', [0.2 0.4 0.6]);
+% ---- run button ----
+btn_load = uibutton(cp, 'Text', 'Run', 'Position', [8 343 204 30], ...
+    'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
 
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 253 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 95 204 156], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 313 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 95 204 216], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -131,7 +134,8 @@ S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scali
 S.topdriven_cache = struct();   % Whether sim is top-driven (uses Y axis)
 % UI handles
 S.fig             = fig;
-S.cb_sims         = cb_sims;
+S.cb_x            = cb_x;      % X axis checkboxes for each sim
+S.cb_y            = cb_y;      % Y axis checkboxes for each sim
 S.sl_freq         = sl_freq;
 S.sl_frame        = sl_frame;
 S.lbl_freq        = lbl_freq;
@@ -143,7 +147,6 @@ S.btn_kymo        = btn_kymo;
 S.txt_status      = txt_status;
 S.dd_range_start  = dd_range_start;
 S.dd_range_end    = dd_range_end;
-S.dd_axis         = dd_axis;
 % Plot area bounds
 S.plot_area       = [plot_area_x, plot_area_y, plot_area_w, plot_area_h];
 S.panels          = {};
@@ -162,9 +165,8 @@ btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
-dd_axis.ValueChangedFcn   = @(~,~) render(fig);  % Re-render with new axis
 
-% Checkboxes do NOT auto-load - user clicks Load when ready
+% Checkboxes do NOT auto-load - user clicks Run when ready
 % (no ValueChangedFcn set)
 
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
@@ -299,16 +301,22 @@ function cb_load(fig, force_reload)
     start_pct = str2double(strtrim(strrep(S.dd_range_start.Value, '%', '')));
     end_pct   = str2double(strtrim(strrep(S.dd_range_end.Value,   '%', '')));
 
-    % Find which sims are selected
-    selected = [];
+    % Find which (sim, axis) pairs are selected
+    % selected_views: array of structs with .sim_idx, .use_y, .label
+    selected_views = {};
     for i = 1:6
-        if S.cb_sims{i}.Value
-            selected(end+1) = i;
+        st = S.all_sim_types{i};
+        st_upper = upper(st);
+        if S.cb_x{i}.Value
+            selected_views{end+1} = struct('sim_idx', i, 'use_y', false, 'label', [st_upper ' (X)']);
+        end
+        if S.cb_y{i}.Value
+            selected_views{end+1} = struct('sim_idx', i, 'use_y', true, 'label', [st_upper ' (Y)']);
         end
     end
 
-    if isempty(selected)
-        S.txt_status.Value = {'No simulations selected'};
+    if isempty(selected_views)
+        S.txt_status.Value = {'No views selected - check X or Y boxes'};
         fig.UserData = S;
         return;
     end
@@ -319,10 +327,10 @@ function cb_load(fig, force_reload)
     end
     S.panels = {};
     S.axs = {};
-    S.selected_types = {};
+    S.view_configs = {};  % Store (sim_type, use_y) for each panel
 
-    % Create new panels for selected sims
-    n_sel = length(selected);
+    % Create new panels for selected views
+    n_sel = length(selected_views);
     [rows, cols] = get_grid_size(n_sel);
     pa = S.plot_area;  % [x, y, w, h]
     pw = floor((pa(3) - (cols-1)*8) / cols);
@@ -333,42 +341,21 @@ function cb_load(fig, force_reload)
     S.data = struct();
     S.params = struct();
 
-    for idx = 1:n_sel
-        i = selected(idx);
+    % First pass: load all needed simulations (shared data for X and Y views)
+    sims_needed = unique(cellfun(@(v) v.sim_idx, selected_views));
+    for k = 1:length(sims_needed)
+        i = sims_needed(k);
         st = S.all_sim_types{i};
-        S.selected_types{end+1} = st;
 
-        % Calculate grid position
-        row = ceil(idx / cols);
-        col = mod(idx-1, cols) + 1;
-        px = pa(1) + (col-1) * (pw + 8);
-        py = pa(2) + pa(4) - row * ph - (row-1)*8;
-
-        % Create panel
-        pan = uipanel(S.fig, 'Title', upper(st), ...
-            'Position', [px py pw ph], ...
-            'BackgroundColor', [0.1 0.1 0.1], 'ForegroundColor', 'w', 'FontWeight', 'bold');
-        ax = uiaxes(pan, 'Position', [8 8 pw-18 ph-38], ...
-            'Color', 'k', 'XColor', 'w', 'YColor', 'w');
-        ax.Toolbar.Visible = 'off';
-
-        S.panels{end+1} = pan;
-        S.axs{end+1} = ax;
-
-        % Build cache key
+        % Build cache key (shared for X and Y views of same sim)
         cache_key = sprintf('%s_f%d_r%d_%d', st, S.freq_idx, start_pct, end_pct);
         cache_key = matlab.lang.makeValidName(cache_key);
 
-        % Check cache first (unless force reload)
+        % Check cache first
         if ~force_reload && isfield(S.cache, cache_key)
-            % Use cached data
             cached = S.cache.(cache_key);
             S.data.(st) = cached.xyz;
             S.params.(st) = cached.params;
-            S.x0_cache.(st) = cached.x0;
-            S.kymo_cache.(st) = cached.kymo;
-            S.ymax_cache.(st) = cached.ymax;
-            S.topdriven_cache.(st) = cached.is_topdriven;
             max_frames = max(max_frames, size(cached.xyz, 3));
             lines_out = [lines_out; {sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3))}];
             continue;
@@ -387,7 +374,6 @@ function cb_load(fig, force_reload)
         end
 
         try
-            % Use matfile for faster partial access
             S.txt_status.Value = [lines_out; {sprintf('Loading %s...', upper(st))}];
             drawnow;
 
@@ -404,36 +390,8 @@ function cb_load(fig, force_reload)
             S.params.(st) = sim_p;
             n_frames = size(xyz, 3);
 
-            % Determine if this is a top-driven sim (wave in Y direction)
-            is_topdriven = strcmp(st, 'topdriven') || strcmp(st, 'frust_top');
-            S.topdriven_cache.(st) = is_topdriven;
-
-            % Pre-compute equilibrium positions (first 10 frames or available)
-            n_eq = min(10, n_frames);
-            if is_topdriven
-                % Top-driven: use Y axis (column 2)
-                pos0 = mean(xyz(:,2,1:n_eq), 3);
-                all_dpos = squeeze(xyz(:,2,:)) - pos0;
-                axis_len = sim_p.height;
-            else
-                % Side-driven: use X axis (column 1)
-                pos0 = mean(xyz(:,1,1:n_eq), 3);
-                all_dpos = squeeze(xyz(:,1,:)) - pos0;
-                axis_len = sim_p.width;
-            end
-            S.x0_cache.(st) = pos0;
-
-            % Pre-compute global max displacement for consistent y-axis
-            global_ymax = max(0.5, max(abs(all_dpos(:))) * 1.1);
-            S.ymax_cache.(st) = global_ymax;
-
-            % Pre-compute kymograph
-            kymo = compute_kymograph_fast(xyz, pos0, axis_len, is_topdriven);
-            S.kymo_cache.(st) = kymo;
-
-            % Store in cache
-            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p, 'x0', pos0, ...
-                'kymo', kymo, 'ymax', global_ymax, 'is_topdriven', is_topdriven);
+            % Store in cache (just xyz and params - axis-specific stuff computed on render)
+            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p);
 
             max_frames = max(max_frames, n_frames);
             lines_out = [lines_out; {sprintf('%s: %d/%d fr', upper(st), n_frames, n_total)}];
@@ -441,6 +399,33 @@ function cb_load(fig, force_reload)
             S.data.(st) = [];
             lines_out = [lines_out; {sprintf('%s: ERR - %s', upper(st), ME.message)}];
         end
+    end
+
+    % Second pass: create panels for each (sim, axis) view
+    for idx = 1:n_sel
+        v = selected_views{idx};
+        i = v.sim_idx;
+        st = S.all_sim_types{i};
+
+        % Store view config
+        S.view_configs{end+1} = struct('sim_type', st, 'use_y', v.use_y);
+
+        % Calculate grid position
+        row = ceil(idx / cols);
+        col = mod(idx-1, cols) + 1;
+        px = pa(1) + (col-1) * (pw + 8);
+        py = pa(2) + pa(4) - row * ph - (row-1)*8;
+
+        % Create panel with axis label in title
+        pan = uipanel(S.fig, 'Title', v.label, ...
+            'Position', [px py pw ph], ...
+            'BackgroundColor', [0.1 0.1 0.1], 'ForegroundColor', 'w', 'FontWeight', 'bold');
+        ax = uiaxes(pan, 'Position', [8 8 pw-18 ph-38], ...
+            'Color', 'k', 'XColor', 'w', 'YColor', 'w');
+        ax.Toolbar.Visible = 'off';
+
+        S.panels{end+1} = pan;
+        S.axs{end+1} = ax;
     end
 
     S.max_frames = max(max_frames, 2);
@@ -595,10 +580,19 @@ end
 function render(fig)
     S = fig.UserData;
 
+    % Check if view_configs exists
+    if ~isfield(S, 'view_configs') || isempty(S.view_configs)
+        return;
+    end
+
     for idx = 1:length(S.axs)
         ax = S.axs{idx};
-        if idx > length(S.selected_types); continue; end
-        st = S.selected_types{idx};
+        if idx > length(S.view_configs); continue; end
+
+        % Get view configuration (sim type and axis)
+        vc = S.view_configs{idx};
+        st = vc.sim_type;
+        use_y = vc.use_y;
 
         if ~isfield(S.data, st) || isempty(S.data.(st))
             cla(ax);
@@ -613,21 +607,7 @@ function render(fig)
         p = S.params.(st);
         W = p.width; H = p.height;
 
-        % Get axis setting from dropdown
-        axis_setting = S.dd_axis.Value;
-        auto_topdriven = S.topdriven_cache.(st);  % Auto: Y for top-driven, X for side-driven
-
-        % Determine which axis to use
-        switch axis_setting
-            case 'Auto'
-                use_y_axis = auto_topdriven;
-            case 'X axis'
-                use_y_axis = false;
-            case 'Y axis'
-                use_y_axis = true;
-        end
-
-        if use_y_axis
+        if use_y
             axis_len = H;
         else
             axis_len = W;
@@ -637,12 +617,9 @@ function render(fig)
             case 'particles'
                 draw_particles(ax, xyz, fr, W, H);
             case 'wavefront'
-                % Compute wavefront with user-selected axis (may differ from cached)
-                draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y_axis);
+                draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y);
             case 'kymograph'
-                % Kymograph uses pre-computed data (based on auto-detected axis)
-                kymo = S.kymo_cache.(st);
-                draw_kymograph_fast(ax, kymo, axis_len, auto_topdriven);
+                draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
         end
     end
 end
@@ -741,8 +718,49 @@ function draw_wavefront_fast(ax, xyz, fr, axis_len, pos0, global_ymax, is_topdri
     hold(ax,'off');
 end
 
+function draw_kymograph_dynamic(ax, xyz, axis_len, use_y)
+    % Compute kymograph on-the-fly with selected axis
+    cla(ax);
+    n_fr = size(xyz, 3);
+    n_bins = 80;
+    edges = linspace(0, axis_len, n_bins+1);
+    ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+    % Compute equilibrium positions
+    n_eq = min(10, n_fr);
+    if use_y
+        pos0 = mean(xyz(:,2,1:n_eq), 3);
+        pos_all = squeeze(xyz(:, 2, :));
+        ylabel_str = 'Y position (px)';
+    else
+        pos0 = mean(xyz(:,1,1:n_eq), 3);
+        pos_all = squeeze(xyz(:, 1, :));
+        ylabel_str = 'X position (px)';
+    end
+    dpos_all = pos_all - pos0;
+
+    % Bin particles
+    bin_idx = discretize(pos0, edges);
+    valid = ~isnan(bin_idx);
+
+    kymo = zeros(n_bins, n_fr);
+    for b = 1:n_bins
+        mask = (bin_idx == b) & valid;
+        if any(mask)
+            kymo(b, :) = mean(dpos_all(mask, :), 1);
+        end
+    end
+
+    imagesc(ax, 1:n_fr, ctrs, kymo);
+    colormap(ax,'jet');
+    cmax = max(0.5, max(abs(kymo(:))) * 1.2);
+    clim(ax, [-cmax, cmax]);
+    xlabel(ax,'Frame'); ylabel(ax, ylabel_str);
+    set(ax,'YDir','normal');
+end
+
 function draw_kymograph_fast(ax, kymo, axis_len, is_topdriven)
-    % Use pre-computed kymograph
+    % Use pre-computed kymograph (kept for compatibility)
     cla(ax);
     n_bins = size(kymo, 1);
     n_fr = size(kymo, 2);
