@@ -109,9 +109,11 @@ dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
     'Value', '20%', 'Position', [122 383 90 24]);
 
-% ---- run button ----
-btn_load = uibutton(cp, 'Text', 'Run', 'Position', [8 343 204 30], ...
+% ---- run and cancel buttons ----
+btn_load = uibutton(cp, 'Text', 'Run', 'Position', [8 343 140 30], ...
     'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
+btn_cancel = uibutton(cp, 'Text', 'Cancel', 'Position', [152 343 60 30], ...
+    'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11);
 
 % ---- status ----
 uilabel(cp, 'Text', 'Status:', 'Position', [8 313 200 18], 'FontColor', 'w');
@@ -155,6 +157,8 @@ S.cb_manual_freq  = cb_manual_freq;
 S.txt_manual_freq = txt_manual_freq;
 S.lbl_manual_help = lbl_manual_help;
 S.manual_freqs    = [];  % Parsed manual frequencies
+S.btn_cancel      = btn_cancel;
+S.cancel_loading  = false;  % Flag to cancel loading
 S.btn_play        = btn_play;
 S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
@@ -176,6 +180,7 @@ btn_play.ButtonPushedFcn  = @(~,~) cb_play(fig);
 btn_step.ButtonPushedFcn  = @(~,~) cb_step(fig);
 btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
 btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig, true);
+btn_cancel.ButtonPushedFcn = @(~,~) cb_cancel(fig);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
@@ -221,6 +226,14 @@ function cb_toggle_manual(fig)
         S.lbl_manual_help.Visible = 'off';
     end
     fig.UserData = S;
+end
+
+function cb_cancel(fig)
+    % Set cancel flag to stop loading
+    S = fig.UserData;
+    S.cancel_loading = true;
+    fig.UserData = S;
+    S.txt_status.Value = [S.txt_status.Value; {'Cancelling...'}];
 end
 
 function cb_frame(fig)
@@ -333,6 +346,10 @@ end
 function cb_load(fig, force_reload)
     S = fig.UserData;
 
+    % Reset cancel flag at start of loading
+    S.cancel_loading = false;
+    fig.UserData = S;
+
     % Determine which frequencies to use
     is_manual = S.cb_manual_freq.Value;
     if is_manual
@@ -421,11 +438,26 @@ function cb_load(fig, force_reload)
     freqs_to_load = S.manual_freqs;
 
     for k = 1:length(sims_needed)
+        % Check for cancel request
+        drawnow;  % Allow UI to process cancel button
+        S = fig.UserData;
+        if S.cancel_loading
+            lines_out = [lines_out; {'Loading cancelled by user'}];
+            break;
+        end
+
         i = sims_needed(k);
         st = S.all_sim_types{i};
         S.multi_freq_data.(st) = {};
 
         for fi = 1:length(freqs_to_load)
+            % Check for cancel request
+            drawnow;  % Allow UI to process cancel button
+            S = fig.UserData;
+            if S.cancel_loading
+                break;  % Will be caught by outer loop check
+            end
+
             freq = freqs_to_load(fi);
 
             % Build cache key
@@ -497,7 +529,20 @@ function cb_load(fig, force_reload)
                 lines_out = [lines_out; {sprintf('%s f=%.4f: ERR - %s', upper(st), freq, ME.message)}];
             end
         end  % end frequency loop
+
+        % Check if cancelled during frequency loop
+        if S.cancel_loading
+            lines_out = [lines_out; {'Loading cancelled by user'}];
+            break;
+        end
     end  % end sim loop
+
+    % Update status if cancelled
+    if S.cancel_loading
+        S.txt_status.Value = lines_out;
+        fig.UserData = S;
+        return;
+    end
 
     % Second pass: create panels for each (sim, axis) view
     for idx = 1:n_sel
