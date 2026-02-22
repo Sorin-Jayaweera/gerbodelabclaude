@@ -57,14 +57,25 @@ for i = 1:6
         'Position', [170 y_pos 25 18], 'FontColor', 'w');
 end
 
-% frequency slider
-uilabel(cp, 'Text', 'Frequency:', 'Position', [8 768 200 18], 'FontColor', 'w');
+% frequency controls
+uilabel(cp, 'Text', 'Frequency:', 'Position', [8 768 70 18], 'FontColor', 'w');
+cb_manual_freq = uicheckbox(cp, 'Text', 'Manual', 'Value', false, ...
+    'Position', [85 768 70 18], 'FontColor', 'w');
+
+% Slider mode (default)
 sl_freq = uislider(cp, 'Position', [8 738 200 3], ...
     'Limits', [1 length(all_frequencies)], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
 lbl_freq = uilabel(cp, 'Text', sprintf('f = %.4f', all_frequencies(1)), ...
     'Position', [8 708 200 24], 'FontColor', 'cyan', 'FontSize', 13, ...
     'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+
+% Manual mode text field (hidden by default)
+txt_manual_freq = uitextarea(cp, 'Value', {'0.001, 0.002, 0.005'}, ...
+    'Position', [8 708 200 50], 'Visible', 'off', ...
+    'FontSize', 10, 'BackgroundColor', [0.15 0.15 0.15], 'FontColor', 'cyan');
+lbl_manual_help = uilabel(cp, 'Text', 'Comma-separated frequencies', ...
+    'Position', [8 688 200 18], 'FontColor', [0.5 0.5 0.5], 'FontSize', 9, 'Visible', 'off');
 
 % view mode
 uilabel(cp, 'Text', 'View Mode:', 'Position', [8 678 200 18], 'FontColor', 'w');
@@ -140,6 +151,10 @@ S.sl_freq         = sl_freq;
 S.sl_frame        = sl_frame;
 S.lbl_freq        = lbl_freq;
 S.lbl_frame       = lbl_frame;
+S.cb_manual_freq  = cb_manual_freq;
+S.txt_manual_freq = txt_manual_freq;
+S.lbl_manual_help = lbl_manual_help;
+S.manual_freqs    = [];  % Parsed manual frequencies
 S.btn_play        = btn_play;
 S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
@@ -165,6 +180,7 @@ btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
+cb_manual_freq.ValueChangedFcn = @(~,~) cb_toggle_manual(fig);
 
 % Checkboxes do NOT auto-load - user clicks Run when ready
 % (no ValueChangedFcn set)
@@ -183,6 +199,27 @@ function cb_freq_label(fig)
     S = fig.UserData;
     S.freq_idx = round(S.sl_freq.Value);
     S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
+    fig.UserData = S;
+end
+
+function cb_toggle_manual(fig)
+    % Toggle between slider and manual frequency entry
+    S = fig.UserData;
+    is_manual = S.cb_manual_freq.Value;
+
+    if is_manual
+        % Show text field, hide slider
+        S.sl_freq.Visible = 'off';
+        S.lbl_freq.Visible = 'off';
+        S.txt_manual_freq.Visible = 'on';
+        S.lbl_manual_help.Visible = 'on';
+    else
+        % Show slider, hide text field
+        S.sl_freq.Visible = 'on';
+        S.lbl_freq.Visible = 'on';
+        S.txt_manual_freq.Visible = 'off';
+        S.lbl_manual_help.Visible = 'off';
+    end
     fig.UserData = S;
 end
 
@@ -295,7 +332,44 @@ end
 
 function cb_load(fig, force_reload)
     S = fig.UserData;
-    freq = S.frequencies(S.freq_idx);
+
+    % Determine which frequencies to use
+    is_manual = S.cb_manual_freq.Value;
+    if is_manual
+        % Parse manual frequencies
+        txt = strjoin(S.txt_manual_freq.Value, ' ');
+        parts = strsplit(txt, {',', ' ', ';'});
+        parts = parts(~cellfun(@isempty, parts));
+
+        freqs_to_use = [];
+        for k = 1:length(parts)
+            val = str2double(strtrim(parts{k}));
+            if isnan(val)
+                S.txt_status.Value = {sprintf('ERROR: Invalid frequency "%s"', parts{k})};
+                fig.UserData = S;
+                return;
+            end
+            % Check if frequency is in the valid list (find closest match)
+            [min_diff, idx] = min(abs(S.frequencies - val));
+            if min_diff > 1e-6
+                S.txt_status.Value = {sprintf('ERROR: Frequency %.4f not found', val), ...
+                    'Valid: 0.0004 to 0.10'};
+                fig.UserData = S;
+                return;
+            end
+            freqs_to_use(end+1) = S.frequencies(idx);
+        end
+
+        if isempty(freqs_to_use)
+            S.txt_status.Value = {'ERROR: No valid frequencies entered'};
+            fig.UserData = S;
+            return;
+        end
+        S.manual_freqs = unique(freqs_to_use);  % Remove duplicates
+    else
+        % Single frequency from slider
+        S.manual_freqs = S.frequencies(S.freq_idx);
+    end
 
     % Get load range
     start_pct = str2double(strtrim(strrep(S.dd_range_start.Value, '%', '')));
@@ -338,68 +412,92 @@ function cb_load(fig, force_reload)
 
     lines_out = {};
     max_frames = 1;
-    S.data = struct();
+    S.data = struct();       % S.data.(sim_type) = xyz for first/single frequency
     S.params = struct();
+    S.multi_freq_data = struct();  % S.multi_freq_data.(sim_type){freq_idx} = xyz
 
-    % First pass: load all needed simulations (shared data for X and Y views)
+    % First pass: load all needed simulations for ALL frequencies
     sims_needed = unique(cellfun(@(v) v.sim_idx, selected_views));
+    freqs_to_load = S.manual_freqs;
+
     for k = 1:length(sims_needed)
         i = sims_needed(k);
         st = S.all_sim_types{i};
+        S.multi_freq_data.(st) = {};
 
-        % Build cache key (shared for X and Y views of same sim)
-        cache_key = sprintf('%s_f%d_r%d_%d', st, S.freq_idx, start_pct, end_pct);
-        cache_key = matlab.lang.makeValidName(cache_key);
+        for fi = 1:length(freqs_to_load)
+            freq = freqs_to_load(fi);
 
-        % Check cache first
-        if ~force_reload && isfield(S.cache, cache_key)
-            cached = S.cache.(cache_key);
-            S.data.(st) = cached.xyz;
-            S.params.(st) = cached.params;
-            max_frames = max(max_frames, size(cached.xyz, 3));
-            lines_out = [lines_out; {sprintf('%s: %d fr (cached)', upper(st), size(cached.xyz, 3))}];
-            continue;
-        end
+            % Build cache key
+            cache_key = sprintf('%s_f%.4f_r%d_%d', st, freq, start_pct, end_pct);
+            cache_key = matlab.lang.makeValidName(cache_key);
 
-        % Load data from disk
-        sim_name = sprintf(S.all_name_fmts{i}, freq);
-        plist_path = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'plist.mat');
-        par_path   = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'sim_params.mat');
-
-        if ~exist(plist_path, 'file')
-            S.data.(st) = [];
-            S.params.(st) = [];
-            lines_out = [lines_out; {sprintf('%s: not found', upper(st))}];
-            continue;
-        end
-
-        try
-            S.txt_status.Value = [lines_out; {sprintf('Loading %s...', upper(st))}];
-            drawnow;
-
-            [xyz, n_total, sim_p] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct);
-
-            if isempty(xyz)
-                S.data.(st) = [];
-                S.params.(st) = [];
-                lines_out = [lines_out; {sprintf('%s: load failed', upper(st))}];
+            % Check cache first
+            if ~force_reload && isfield(S.cache, cache_key)
+                cached = S.cache.(cache_key);
+                S.multi_freq_data.(st){fi} = cached.xyz;
+                if fi == 1
+                    S.data.(st) = cached.xyz;
+                    S.params.(st) = cached.params;
+                end
+                max_frames = max(max_frames, size(cached.xyz, 3));
+                if fi == 1
+                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d fr (cached)', upper(st), freq, size(cached.xyz, 3))}];
+                end
                 continue;
             end
 
-            S.data.(st) = xyz;
-            S.params.(st) = sim_p;
-            n_frames = size(xyz, 3);
+            % Load data from disk
+            sim_name = sprintf(S.all_name_fmts{i}, freq);
+            plist_path = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'plist.mat');
+            par_path   = fullfile(S.base_path, S.all_sim_folders{i}, 'simulations', sim_name, 'sim_params.mat');
 
-            % Store in cache (just xyz and params - axis-specific stuff computed on render)
-            S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p);
+            if ~exist(plist_path, 'file')
+                S.multi_freq_data.(st){fi} = [];
+                if fi == 1
+                    S.data.(st) = [];
+                    S.params.(st) = [];
+                    lines_out = [lines_out; {sprintf('%s f=%.4f: not found', upper(st), freq)}];
+                end
+                continue;
+            end
 
-            max_frames = max(max_frames, n_frames);
-            lines_out = [lines_out; {sprintf('%s: %d/%d fr', upper(st), n_frames, n_total)}];
-        catch ME
-            S.data.(st) = [];
-            lines_out = [lines_out; {sprintf('%s: ERR - %s', upper(st), ME.message)}];
-        end
-    end
+            try
+                [xyz, n_total, sim_p] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct);
+
+                if isempty(xyz)
+                    S.multi_freq_data.(st){fi} = [];
+                    if fi == 1
+                        S.data.(st) = [];
+                        S.params.(st) = [];
+                        lines_out = [lines_out; {sprintf('%s f=%.4f: load failed', upper(st), freq)}];
+                    end
+                    continue;
+                end
+
+                S.multi_freq_data.(st){fi} = xyz;
+                if fi == 1
+                    S.data.(st) = xyz;
+                    S.params.(st) = sim_p;
+                end
+                n_frames = size(xyz, 3);
+
+                % Store in cache
+                S.cache.(cache_key) = struct('xyz', xyz, 'params', sim_p);
+
+                max_frames = max(max_frames, n_frames);
+                if fi == 1 || length(freqs_to_load) <= 3
+                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d/%d fr', upper(st), freq, n_frames, n_total)}];
+                end
+            catch ME
+                S.multi_freq_data.(st){fi} = [];
+                if fi == 1
+                    S.data.(st) = [];
+                end
+                lines_out = [lines_out; {sprintf('%s f=%.4f: ERR - %s', upper(st), freq, ME.message)}];
+            end
+        end  % end frequency loop
+    end  % end sim loop
 
     % Second pass: create panels for each (sim, axis) view
     for idx = 1:n_sel
@@ -617,7 +715,13 @@ function render(fig)
             case 'particles'
                 draw_particles(ax, xyz, fr, W, H);
             case 'wavefront'
-                draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y);
+                % Pass multi-frequency data for overlay
+                if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                    multi_data = S.multi_freq_data.(st);
+                else
+                    multi_data = {xyz};
+                end
+                draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, fr, axis_len, use_y);
             case 'kymograph'
                 draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
         end
@@ -631,6 +735,85 @@ function draw_particles(ax, xyz, fr, W, H)
     scatter(ax, x, y, 6, [zn, zeros(size(zn)), 1-zn], 'filled');
     xlim(ax,[0 W]); ylim(ax,[0 H]); axis(ax,'equal');
     set(ax,'Color','k'); hold(ax,'off');
+end
+
+function draw_wavefront_multifreq(ax, multi_data, freqs, fr, axis_len, use_y)
+    % Plot wavefronts for multiple frequencies overlaid
+    cla(ax); hold(ax,'on');
+
+    % Color palette for different frequencies
+    colors = [0 1 1;      % cyan
+              1 0.5 0;    % orange
+              0 1 0;      % green
+              1 0 1;      % magenta
+              1 1 0;      % yellow
+              0.5 0.5 1;  % light blue
+              1 0.5 0.5;  % light red
+              0.5 1 0.5]; % light green
+
+    n_bins = 60;
+    edges = linspace(0, axis_len, n_bins+1);
+    ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+    global_ymax = 0.5;
+    legend_entries = {};
+
+    for fi = 1:length(multi_data)
+        xyz = multi_data{fi};
+        if isempty(xyz); continue; end
+
+        n_frames = size(xyz, 3);
+        n_eq = min(10, n_frames);
+        frame = min(fr, n_frames);
+
+        if use_y
+            pos = xyz(:,2,frame);
+            pos0 = mean(xyz(:,2,1:n_eq), 3);
+            all_dpos = squeeze(xyz(:,2,:)) - pos0;
+        else
+            pos = xyz(:,1,frame);
+            pos0 = mean(xyz(:,1,1:n_eq), 3);
+            all_dpos = squeeze(xyz(:,1,:)) - pos0;
+        end
+        dpos = pos - pos0;
+
+        % Update global max
+        global_ymax = max(global_ymax, max(abs(all_dpos(:))) * 1.1);
+
+        % Bin and average
+        bin_idx = discretize(pos0, edges);
+        avg_dpos = zeros(n_bins,1);
+        for b = 1:n_bins
+            mask = (bin_idx == b);
+            if any(mask)
+                avg_dpos(b) = mean(dpos(mask));
+            end
+        end
+
+        % Plot with color
+        c_idx = mod(fi-1, size(colors,1)) + 1;
+        plot(ax, ctrs, avg_dpos, '-', 'LineWidth', 2, 'Color', colors(c_idx,:));
+        legend_entries{end+1} = sprintf('f=%.4f', freqs(fi));
+    end
+
+    yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
+    xlim(ax,[0 axis_len]);
+    ylim(ax, [-global_ymax, global_ymax]);
+
+    if use_y
+        xlabel(ax, 'Y position (px)');
+    else
+        xlabel(ax, 'X position (px)');
+    end
+    ylabel(ax,'Displacement (px)');
+
+    % Add legend if multiple frequencies
+    if length(legend_entries) > 1
+        legend(ax, legend_entries, 'Location', 'best', 'TextColor', 'w', 'Color', [0.2 0.2 0.2]);
+    end
+
+    set(ax,'Color','k');
+    hold(ax,'off');
 end
 
 function draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y_axis)
