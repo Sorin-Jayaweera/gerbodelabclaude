@@ -271,32 +271,92 @@ function cb_toggle_multi_freq(fig)
 end
 
 function cb_open_freq_selector(fig)
-    % Open a dialog to select multiple frequencies
+    % Open a custom dialog with checkboxes to select multiple frequencies
     S = fig.UserData;
+    n_freqs = length(S.frequencies);
 
-    % Create frequency labels
-    freq_labels = arrayfun(@(f) sprintf('%.4f', f), S.frequencies, 'UniformOutput', false);
+    % Create dialog figure
+    dlg_h = 30 + n_freqs * 22 + 50;  % Height based on number of frequencies
+    dlg = uifigure('Name', 'Select Frequencies', ...
+        'Position', [300 200 250 min(dlg_h, 600)], ...
+        'Color', [0.2 0.2 0.2], 'Resize', 'off');
 
-    % Determine which are currently selected
-    if isempty(S.selected_freq_idxs)
-        initial_sel = [];
+    % Title label
+    uilabel(dlg, 'Text', 'Click to toggle frequencies:', ...
+        'Position', [10 dlg.Position(4)-30 230 20], ...
+        'FontColor', 'w', 'FontWeight', 'bold');
+
+    % Create scrollable panel if too many frequencies
+    if dlg_h > 600
+        scroll_panel = uipanel(dlg, 'Position', [5 50 240 dlg.Position(4)-90], ...
+            'BackgroundColor', [0.15 0.15 0.15], 'BorderType', 'none', ...
+            'Scrollable', 'on');
+        parent = scroll_panel;
+        cb_y_base = n_freqs * 22;
     else
-        initial_sel = S.selected_freq_idxs;
+        parent = dlg;
+        cb_y_base = dlg.Position(4) - 55;
     end
 
-    % Create selection dialog
-    [sel_idxs, ok] = listdlg('ListString', freq_labels, ...
-        'SelectionMode', 'multiple', ...
-        'InitialValue', initial_sel, ...
-        'ListSize', [200 400], ...
-        'Name', 'Select Frequencies', ...
-        'PromptString', 'Select frequencies to plot (overlay):', ...
-        'OKString', 'OK', 'CancelString', 'Cancel');
+    % Create checkboxes for each frequency
+    freq_cbs = cell(n_freqs, 1);
+    for i = 1:n_freqs
+        is_selected = ismember(i, S.selected_freq_idxs);
+        y_pos = cb_y_base - i * 22;
+        freq_cbs{i} = uicheckbox(parent, ...
+            'Text', sprintf('f = %.4f', S.frequencies(i)), ...
+            'Value', is_selected, ...
+            'Position', [15 y_pos 200 20], ...
+            'FontColor', 'w');
+    end
 
-    if ok && ~isempty(sel_idxs)
+    % Store checkbox handles in dialog
+    dlg.UserData = struct('freq_cbs', {freq_cbs}, 'main_fig', fig);
+
+    % OK and Cancel buttons
+    uibutton(dlg, 'Text', 'OK', 'Position', [30 10 80 30], ...
+        'BackgroundColor', [0.3 0.5 0.3], ...
+        'ButtonPushedFcn', @(~,~) freq_selector_ok(dlg));
+    uibutton(dlg, 'Text', 'Cancel', 'Position', [130 10 80 30], ...
+        'BackgroundColor', [0.5 0.3 0.3], ...
+        'ButtonPushedFcn', @(~,~) close(dlg));
+
+    % Select All / Clear All buttons
+    uibutton(dlg, 'Text', 'All', 'Position', [170 dlg.Position(4)-30 35 22], ...
+        'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 10, ...
+        'ButtonPushedFcn', @(~,~) freq_selector_all(dlg, true));
+    uibutton(dlg, 'Text', 'None', 'Position', [207 dlg.Position(4)-30 38 22], ...
+        'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 10, ...
+        'ButtonPushedFcn', @(~,~) freq_selector_all(dlg, false));
+end
+
+function freq_selector_all(dlg, select_all)
+    % Select or deselect all frequencies
+    d = dlg.UserData;
+    for i = 1:length(d.freq_cbs)
+        d.freq_cbs{i}.Value = select_all;
+    end
+end
+
+function freq_selector_ok(dlg)
+    % Apply frequency selection and close dialog
+    d = dlg.UserData;
+    fig = d.main_fig;
+    S = fig.UserData;
+
+    % Get selected indices
+    sel_idxs = [];
+    for i = 1:length(d.freq_cbs)
+        if d.freq_cbs{i}.Value
+            sel_idxs(end+1) = i;
+        end
+    end
+
+    if ~isempty(sel_idxs)
         S.selected_freq_idxs = sel_idxs;
 
         % Update label to show selected frequencies
+        freq_labels = arrayfun(@(f) sprintf('%.4f', f), S.frequencies, 'UniformOutput', false);
         if length(sel_idxs) <= 3
             sel_str = strjoin(freq_labels(sel_idxs), ', ');
         else
@@ -311,6 +371,8 @@ function cb_open_freq_selector(fig)
 
         fig.UserData = S;
     end
+
+    close(dlg);
 end
 
 function cb_action(fig)
