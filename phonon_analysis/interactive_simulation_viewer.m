@@ -44,7 +44,7 @@ uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 100 18], 'FontColor', 'w',
 uilabel(cp, 'Text', 'X', 'Position', [145 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
 uilabel(cp, 'Text', 'Y', 'Position', [175 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
 
-cb_labels = {'Chevron', 'Stripe', 'Random', 'Top-driven', 'Frust Side', 'Frust Top'};
+cb_labels = {'Chevron (side)', 'Stripe (side)', 'Random (side)', 'Chevron (top)', 'Frust (side)', 'Frust (top)'};
 cb_x = cell(6,1);  % X axis checkboxes
 cb_y = cell(6,1);  % Y axis checkboxes
 for i = 1:6
@@ -95,7 +95,7 @@ lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 473 200 24], ..
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
 uilabel(cp, 'Text', 'Speed:', 'Position', [8 443 60 18], 'FontColor', 'w');
-dd_speed = uidropdown(cp, 'Items', {'0.25x','0.5x','1x','2x','4x'}, 'Value', '1x', ...
+dd_speed = uidropdown(cp, 'Items', {'0.5x','1x','2x','4x','6x','10x'}, 'Value', '1x', ...
     'Position', [70 441 80 24]);
 
 % ---- load range ----
@@ -114,9 +114,19 @@ btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 343 140 30], ...
 btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [152 343 60 30], ...
     'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
+% ---- progress bar ----
+lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 318 204 18], ...
+    'FontColor', 'cyan', 'FontSize', 10, 'HorizontalAlignment', 'center');
+% Progress bar background
+pnl_prog_bg = uipanel(cp, 'Position', [8 308 204 8], 'BorderType', 'none', ...
+    'BackgroundColor', [0.3 0.3 0.3]);
+% Progress bar fill (width will be adjusted during loading)
+pnl_prog_fill = uipanel(cp, 'Position', [8 308 0 8], 'BorderType', 'none', ...
+    'BackgroundColor', [0.2 0.7 0.4]);
+
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 313 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 95 204 216], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 283 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 65 204 216], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -160,6 +170,8 @@ S.btn_action      = btn_action;  % Combined Load/Play button
 S.btn_cancel      = btn_cancel;
 S.cancel_loading  = false;  % Flag to cancel loading
 S.data_loaded     = false;  % Whether data is loaded (button shows Play vs Load)
+S.lbl_progress    = lbl_progress;   % Progress text
+S.pnl_prog_fill   = pnl_prog_fill;  % Progress bar fill
 S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
 S.btn_kymo        = btn_kymo;
@@ -383,11 +395,12 @@ function cb_speed(fig, speed_str)
         pause(0.15);
     end
     switch speed_str
-        case '0.25x'; S.play_speed = 0.25;
         case '0.5x';  S.play_speed = 0.5;
         case '1x';    S.play_speed = 1;
         case '2x';    S.play_speed = 2;
         case '4x';    S.play_speed = 4;
+        case '6x';    S.play_speed = 6;
+        case '10x';   S.play_speed = 10;
     end
     fig.UserData = S;
     if was_playing; cb_play(fig); end
@@ -504,6 +517,10 @@ function cb_load(fig, force_reload)
     sims_needed = unique(cellfun(@(v) v.sim_idx, selected_views));
     freqs_to_load = S.manual_freqs;
 
+    % Progress tracking
+    total_loads = length(sims_needed) * length(freqs_to_load);
+    current_load = 0;
+
     for k = 1:length(sims_needed)
         % Check for cancel request
         drawnow;  % Allow UI to process cancel button
@@ -516,6 +533,9 @@ function cb_load(fig, force_reload)
         i = sims_needed(k);
         st = S.all_sim_types{i};
         S.multi_freq_data.(st) = {};
+
+        % Update progress label with current simulation
+        S.lbl_progress.Text = sprintf('Loading %s...', upper(st));
 
         for fi = 1:length(freqs_to_load)
             % Check for cancel request
@@ -543,6 +563,14 @@ function cb_load(fig, force_reload)
                 if fi == 1
                     lines_out = [lines_out; {sprintf('%s f=%.4f: %d fr (cached)', upper(st), freq, size(cached.xyz, 3))}];
                 end
+
+                % Update progress bar
+                current_load = current_load + 1;
+                prog_pct = current_load / total_loads;
+                S.pnl_prog_fill.Position = [8 308 round(204 * prog_pct) 8];
+                S.lbl_progress.Text = sprintf('%s (cached) %d%%', upper(st), round(prog_pct*100));
+                drawnow;
+
                 continue;
             end
 
@@ -558,6 +586,7 @@ function cb_load(fig, force_reload)
                     S.params.(st) = [];
                     lines_out = [lines_out; {sprintf('%s f=%.4f: not found', upper(st), freq)}];
                 end
+                current_load = current_load + 1;
                 continue;
             end
 
@@ -588,12 +617,21 @@ function cb_load(fig, force_reload)
                 if fi == 1 || length(freqs_to_load) <= 3
                     lines_out = [lines_out; {sprintf('%s f=%.4f: %d/%d fr', upper(st), freq, n_frames, n_total)}];
                 end
+
+                % Update progress bar
+                current_load = current_load + 1;
+                prog_pct = current_load / total_loads;
+                S.pnl_prog_fill.Position = [8 308 round(204 * prog_pct) 8];
+                S.lbl_progress.Text = sprintf('%s f=%.4f %d%%', upper(st), freq, round(prog_pct*100));
+                drawnow;
+
             catch ME
                 S.multi_freq_data.(st){fi} = [];
                 if fi == 1
                     S.data.(st) = [];
                 end
                 lines_out = [lines_out; {sprintf('%s f=%.4f: ERR - %s', upper(st), freq, ME.message)}];
+                current_load = current_load + 1;
             end
         end  % end frequency loop
 
@@ -611,6 +649,9 @@ function cb_load(fig, force_reload)
         S.btn_action.BackgroundColor = [0.2 0.5 0.3];
         S.btn_cancel.Enable = 'off';
         S.data_loaded = false;
+        % Clear progress bar
+        S.lbl_progress.Text = 'Cancelled';
+        S.pnl_prog_fill.Position = [8 308 0 8];
         fig.UserData = S;
         return;
     end
@@ -648,6 +689,10 @@ function cb_load(fig, force_reload)
     S.frame = 1;
     S.lbl_frame.Text = sprintf('Frame: 1 / %d', S.max_frames);
     S.txt_status.Value = lines_out;
+
+    % Clear progress bar and mark complete
+    S.lbl_progress.Text = 'Ready';
+    S.pnl_prog_fill.Position = [8 308 204 8];  % Full bar = complete
 
     % Mark data as loaded - button becomes "Play"
     S.data_loaded = true;
