@@ -815,7 +815,8 @@ function cb_load(fig, force_reload)
             'BackgroundColor', [0.1 0.1 0.1], 'ForegroundColor', 'w', 'FontWeight', 'bold');
         ax = uiaxes(pan, 'Position', [8 8 pw-18 ph-38], ...
             'Color', 'k', 'XColor', 'w', 'YColor', 'w');
-        ax.Toolbar.Visible = 'off';
+        ax.Toolbar.Visible = 'on';  % Enable zoom/pan toolbar
+        axtoolbar(ax, {'pan', 'zoomin', 'zoomout', 'restoreview'});
 
         S.panels{end+1} = pan;
         S.axs{end+1} = ax;
@@ -1039,7 +1040,9 @@ function draw_particles(ax, xyz, fr, W, H)
     x = xyz(:,1,fr); y = xyz(:,2,fr); z = xyz(:,3,fr);
     zn = (z - min(z)) / (max(z)-min(z)+eps);
     scatter(ax, x, y, 6, [zn, zeros(size(zn)), 1-zn], 'filled');
-    xlim(ax,[0 W]); ylim(ax,[0 H]); axis(ax,'equal');
+    xlim(ax,[0 W]); ylim(ax,[0 H]);
+    % Use 'equal' aspect for correct particle spacing, but allow data rect to fill axes
+    daspect(ax, [1 1 1]);  % Equal data aspect ratio
     set(ax,'Color','k'); hold(ax,'off');
 end
 
@@ -1083,8 +1086,9 @@ function draw_wavefront_multifreq(ax, multi_data, freqs, fr, axis_len, use_y)
         end
         dpos = pos - pos0;
 
-        % Update global max
-        global_ymax = max(global_ymax, max(abs(all_dpos(:))) * 1.1);
+        % Update global max using 99th percentile (avoids outliers dominating scale)
+        pct99 = prctile(abs(all_dpos(:)), 99);
+        global_ymax = max(global_ymax, pct99 * 1.2);
 
         % Bin and average
         bin_idx = discretize(pos0, edges);
@@ -1153,13 +1157,14 @@ function draw_wavefront_dynamic(ax, xyz, fr, axis_len, use_y_axis)
         end
     end
 
-    % Compute y-max for this axis
+    % Compute y-max for this axis using 99th percentile
     if use_y_axis
         all_dpos = squeeze(xyz(:,2,:)) - pos0;
     else
         all_dpos = squeeze(xyz(:,1,:)) - pos0;
     end
-    global_ymax = max(0.5, max(abs(all_dpos(:))) * 1.1);
+    pct99 = prctile(abs(all_dpos(:)), 99);
+    global_ymax = max(0.5, pct99 * 1.2);
 
     plot(ax, ctrs, avg_dpos, 'c-', 'LineWidth', 2);
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
@@ -1242,7 +1247,9 @@ function draw_kymograph_dynamic(ax, xyz, axis_len, use_y)
 
     imagesc(ax, 1:n_fr, ctrs, kymo);
     colormap(ax,'jet');
-    cmax = max(0.5, max(abs(kymo(:))) * 1.2);
+    % Use 99th percentile for color scale (avoids outliers washing out detail)
+    pct99 = prctile(abs(kymo(:)), 99);
+    cmax = max(0.5, pct99 * 1.2);
     clim(ax, [-cmax, cmax]);
     xlabel(ax,'Frame'); ylabel(ax, ylabel_str);
     set(ax,'YDir','normal');
@@ -1258,7 +1265,9 @@ function draw_kymograph_fast(ax, kymo, axis_len, is_topdriven)
 
     imagesc(ax, 1:n_fr, ctrs, kymo);
     colormap(ax,'jet');
-    cmax = max(0.5, max(abs(kymo(:))) * 1.2);
+    % Use 99th percentile for color scale
+    pct99 = prctile(abs(kymo(:)), 99);
+    cmax = max(0.5, pct99 * 1.2);
     clim(ax, [-cmax, cmax]);
     if is_topdriven
         ylabel_str = 'Y position (px)';
