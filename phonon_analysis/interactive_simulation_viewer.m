@@ -621,6 +621,28 @@ function cb_load(fig, force_reload)
     sims_needed = unique(cellfun(@(v) v.sim_idx, selected_views));
     freqs_to_load = S.manual_freqs;
 
+    % Clean cache: only keep entries for currently selected simulations
+    if ~isempty(fieldnames(S.cache))
+        cache_keys = fieldnames(S.cache);
+        needed_prefixes = {};
+        for k = 1:length(sims_needed)
+            needed_prefixes{end+1} = S.all_sim_types{sims_needed(k)};
+        end
+        for k = 1:length(cache_keys)
+            key = cache_keys{k};
+            keep = false;
+            for p = 1:length(needed_prefixes)
+                if startsWith(key, needed_prefixes{p})
+                    keep = true;
+                    break;
+                end
+            end
+            if ~keep
+                S.cache = rmfield(S.cache, key);
+            end
+        end
+    end
+
     % Progress tracking
     total_loads = length(sims_needed) * length(freqs_to_load);
     current_load = 0;
@@ -667,7 +689,12 @@ function cb_load(fig, force_reload)
                 end
                 max_frames = max(max_frames, size(cached.xyz, 3));
                 if fi == 1
-                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d fr (cached)', upper(st), freq, size(cached.xyz, 3))}];
+                    % Include drive direction info if available
+                    drive_info = '';
+                    if isfield(cached.params, 'drive_direction')
+                        drive_info = sprintf(' [drive:%s]', cached.params.drive_direction);
+                    end
+                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d fr (cached)%s', upper(st), freq, size(cached.xyz, 3), drive_info)}];
                 end
 
                 % Update progress bar
@@ -721,7 +748,12 @@ function cb_load(fig, force_reload)
 
                 max_frames = max(max_frames, n_frames);
                 if fi == 1 || length(freqs_to_load) <= 3
-                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d/%d fr', upper(st), freq, n_frames, n_total)}];
+                    % Include drive direction info if available
+                    drive_info = '';
+                    if isfield(sim_p, 'drive_direction')
+                        drive_info = sprintf(' [drive:%s]', sim_p.drive_direction);
+                    end
+                    lines_out = [lines_out; {sprintf('%s f=%.4f: %d/%d fr%s', upper(st), freq, n_frames, n_total, drive_info)}];
                 end
 
                 % Update progress bar
