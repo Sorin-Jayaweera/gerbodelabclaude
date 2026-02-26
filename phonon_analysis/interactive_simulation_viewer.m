@@ -83,11 +83,10 @@ btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  651 66 24], 'Backg
 btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [78 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
 btn_kymo = uibutton(cp, 'Text', 'Kymograph', 'Position', [148 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-% playback
+% playback (Step and Reset only - Play is combined with Load button)
 uilabel(cp, 'Text', 'Playback:', 'Position', [8 618 200 18], 'FontColor', 'w');
-btn_play  = uibutton(cp, 'Text', '▶ Play',  'Position', [8  591 100 24], 'BackgroundColor', [0.3 0.5 0.3]);
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [112 591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [8  563 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
 uilabel(cp, 'Text', 'Frame:', 'Position', [8 533 200 18], 'FontColor', 'w');
 sl_frame  = uislider(cp, 'Position', [8 503 200 3], 'Limits', [1 100], 'Value', 1, ...
@@ -109,11 +108,11 @@ dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
     'Value', '20%', 'Position', [122 383 90 24]);
 
-% ---- run and cancel buttons ----
-btn_load = uibutton(cp, 'Text', 'Run', 'Position', [8 343 140 30], ...
+% ---- main action button (Load -> Play/Pause) and cancel ----
+btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 343 140 30], ...
     'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
-btn_cancel = uibutton(cp, 'Text', 'Cancel', 'Position', [152 343 60 30], ...
-    'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11);
+btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [152 343 60 30], ...
+    'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
 % ---- status ----
 uilabel(cp, 'Text', 'Status:', 'Position', [8 313 200 18], 'FontColor', 'w');
@@ -157,9 +156,10 @@ S.cb_manual_freq  = cb_manual_freq;
 S.txt_manual_freq = txt_manual_freq;
 S.lbl_manual_help = lbl_manual_help;
 S.manual_freqs    = [];  % Parsed manual frequencies
+S.btn_action      = btn_action;  % Combined Load/Play button
 S.btn_cancel      = btn_cancel;
 S.cancel_loading  = false;  % Flag to cancel loading
-S.btn_play        = btn_play;
+S.data_loaded     = false;  % Whether data is loaded (button shows Play vs Load)
 S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
 S.btn_kymo        = btn_kymo;
@@ -175,21 +175,25 @@ S.selected_types  = {};  % Track currently displayed types
 fig.UserData = S;
 
 %% ==================== WIRE CALLBACKS ====================
-sl_freq.ValueChangedFcn   = @(~,~) cb_freq_label(fig);   % label only, no load
+sl_freq.ValueChangedFcn   = @(~,~) cb_config_changed(fig);  % Mark needs reload
 sl_frame.ValueChangedFcn  = @(~,~) cb_frame(fig);
-btn_play.ButtonPushedFcn  = @(~,~) cb_play(fig);
 btn_step.ButtonPushedFcn  = @(~,~) cb_step(fig);
 btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
-btn_load.ButtonPushedFcn  = @(~,~) cb_load(fig, true);
+btn_action.ButtonPushedFcn = @(~,~) cb_action(fig);  % Combined Load/Play
 btn_cancel.ButtonPushedFcn = @(~,~) cb_cancel(fig);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
 cb_manual_freq.ValueChangedFcn = @(~,~) cb_toggle_manual(fig);
+dd_range_start.ValueChangedFcn = @(~,~) cb_config_changed(fig);
+dd_range_end.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 
-% Checkboxes do NOT auto-load - user clicks Run when ready
-% (no ValueChangedFcn set)
+% Checkboxes mark config as changed (needs reload)
+for i = 1:6
+    cb_x{i}.ValueChangedFcn = @(~,~) cb_config_changed(fig);
+    cb_y{i}.ValueChangedFcn = @(~,~) cb_config_changed(fig);
+end
 
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
 
@@ -200,11 +204,27 @@ end
 
 %% ==================== CALLBACKS ====================
 
-function cb_freq_label(fig)
-    % Just update the frequency label - loading happens on button press
+function cb_config_changed(fig)
+    % Called when any config changes - mark data as needing reload
     S = fig.UserData;
-    S.freq_idx = round(S.sl_freq.Value);
-    S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
+
+    % Update frequency label if slider mode
+    if ~S.cb_manual_freq.Value
+        S.freq_idx = round(S.sl_freq.Value);
+        S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
+    end
+
+    % Stop playback if playing
+    if S.is_playing
+        S.is_playing = false;
+    end
+
+    % Mark data as not loaded - button becomes "Load"
+    S.data_loaded = false;
+    S.btn_action.Text = 'Load';
+    S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+    S.btn_cancel.Enable = 'off';
+
     fig.UserData = S;
 end
 
@@ -226,15 +246,45 @@ function cb_toggle_manual(fig)
         S.txt_manual_freq.Visible = 'off';
         S.lbl_manual_help.Visible = 'off';
     end
+
+    % Mark as needing reload
+    S.data_loaded = false;
+    S.btn_action.Text = 'Load';
+    S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+
     fig.UserData = S;
 end
 
-function cb_cancel(fig)
-    % Set cancel flag to stop loading
+function cb_action(fig)
+    % Combined Load/Play button callback
     S = fig.UserData;
-    S.cancel_loading = true;
-    fig.UserData = S;
-    S.txt_status.Value = [S.txt_status.Value; {'Cancelling...'}];
+
+    if ~S.data_loaded
+        % Data not loaded - do load
+        cb_load(fig, true);
+    else
+        % Data loaded - toggle play/pause
+        cb_play(fig);
+    end
+end
+
+function cb_cancel(fig)
+    % Stop loading or playback
+    S = fig.UserData;
+
+    if S.is_playing
+        % Stop playback
+        S.is_playing = false;
+        S.btn_action.Text = '▶ Play';
+        S.btn_action.BackgroundColor = [0.3 0.5 0.3];
+        S.btn_cancel.Enable = 'off';
+        fig.UserData = S;
+    else
+        % Cancel loading
+        S.cancel_loading = true;
+        fig.UserData = S;
+        S.txt_status.Value = [S.txt_status.Value; {'Cancelling...'}];
+    end
 end
 
 function cb_frame(fig)
@@ -264,14 +314,18 @@ end
 function cb_play(fig)
     S = fig.UserData;
     if S.is_playing
+        % Pause
         S.is_playing = false;
-        S.btn_play.Text = '▶ Play';
-        S.btn_play.BackgroundColor = [0.3 0.5 0.3];
+        S.btn_action.Text = '▶ Play';
+        S.btn_action.BackgroundColor = [0.3 0.5 0.3];
+        S.btn_cancel.Enable = 'off';
         fig.UserData = S;
     else
+        % Play
         S.is_playing = true;
-        S.btn_play.Text = '⏸ Pause';
-        S.btn_play.BackgroundColor = [0.6 0.3 0.3];
+        S.btn_action.Text = '⏸ Pause';
+        S.btn_action.BackgroundColor = [0.6 0.3 0.3];
+        S.btn_cancel.Enable = 'on';
         fig.UserData = S;
         period = max(0.05, 0.1 / S.play_speed);
         t = timer('ExecutionMode', 'fixedRate', 'Period', period, ...
@@ -306,8 +360,11 @@ end
 function cb_reset(fig)
     S = fig.UserData;
     S.is_playing = false;
-    S.btn_play.Text = '▶ Play';
-    S.btn_play.BackgroundColor = [0.3 0.5 0.3];
+    if S.data_loaded
+        S.btn_action.Text = '▶ Play';
+        S.btn_action.BackgroundColor = [0.3 0.5 0.3];
+    end
+    S.btn_cancel.Enable = 'off';
     S.frame = 1;
     S.sl_frame.Value = 1;
     S.lbl_frame.Text = sprintf('Frame: 1 / %d', S.max_frames);
@@ -320,8 +377,8 @@ function cb_speed(fig, speed_str)
     was_playing = S.is_playing;
     if was_playing
         S.is_playing = false;
-        S.btn_play.Text = '▶ Play';
-        S.btn_play.BackgroundColor = [0.3 0.5 0.3];
+        S.btn_action.Text = '▶ Play';
+        S.btn_action.BackgroundColor = [0.3 0.5 0.3];
         fig.UserData = S;
         pause(0.15);
     end
@@ -349,7 +406,13 @@ function cb_load(fig, force_reload)
 
     % Reset cancel flag at start of loading
     S.cancel_loading = false;
+
+    % Update button to show loading state
+    S.btn_action.Text = 'Loading...';
+    S.btn_action.BackgroundColor = [0.5 0.5 0.3];
+    S.btn_cancel.Enable = 'on';
     fig.UserData = S;
+    drawnow;
 
     % Determine which frequencies to use
     is_manual = S.cb_manual_freq.Value;
@@ -544,6 +607,10 @@ function cb_load(fig, force_reload)
     % Update status if cancelled
     if S.cancel_loading
         S.txt_status.Value = lines_out;
+        S.btn_action.Text = 'Load';
+        S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+        S.btn_cancel.Enable = 'off';
+        S.data_loaded = false;
         fig.UserData = S;
         return;
     end
@@ -581,6 +648,13 @@ function cb_load(fig, force_reload)
     S.frame = 1;
     S.lbl_frame.Text = sprintf('Frame: 1 / %d', S.max_frames);
     S.txt_status.Value = lines_out;
+
+    % Mark data as loaded - button becomes "Play"
+    S.data_loaded = true;
+    S.btn_action.Text = '▶ Play';
+    S.btn_action.BackgroundColor = [0.3 0.5 0.3];
+    S.btn_cancel.Enable = 'off';
+
     fig.UserData = S;
     render(fig);
 end
