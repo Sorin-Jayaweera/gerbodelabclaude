@@ -59,10 +59,10 @@ end
 
 % frequency controls
 uilabel(cp, 'Text', 'Frequency:', 'Position', [8 768 70 18], 'FontColor', 'w');
-cb_manual_freq = uicheckbox(cp, 'Text', 'Manual', 'Value', false, ...
-    'Position', [85 768 70 18], 'FontColor', 'w');
+cb_multi_freq = uicheckbox(cp, 'Text', 'Multi', 'Value', false, ...
+    'Position', [85 768 60 18], 'FontColor', 'w');
 
-% Slider mode (default)
+% Slider mode (default - single frequency)
 sl_freq = uislider(cp, 'Position', [8 738 200 3], ...
     'Limits', [1 length(all_frequencies)], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
@@ -70,12 +70,13 @@ lbl_freq = uilabel(cp, 'Text', sprintf('f = %.4f', all_frequencies(1)), ...
     'Position', [8 708 200 24], 'FontColor', 'cyan', 'FontSize', 13, ...
     'FontWeight', 'bold', 'HorizontalAlignment', 'center');
 
-% Manual mode text field (hidden by default)
-txt_manual_freq = uitextarea(cp, 'Value', {'0.001, 0.002, 0.005'}, ...
-    'Position', [8 708 200 50], 'Visible', 'off', ...
-    'FontSize', 10, 'BackgroundColor', [0.15 0.15 0.15], 'FontColor', 'cyan');
-lbl_manual_help = uilabel(cp, 'Text', 'Comma-separated frequencies', ...
-    'Position', [8 688 200 18], 'FontColor', [0.5 0.5 0.5], 'FontSize', 9, 'Visible', 'off');
+% Multi-frequency mode (hidden by default) - button to open selector + label showing selections
+btn_select_freqs = uibutton(cp, 'Text', 'Select Frequencies...', ...
+    'Position', [8 728 204 24], 'Visible', 'off', ...
+    'BackgroundColor', [0.3 0.3 0.5]);
+lbl_selected_freqs = uilabel(cp, 'Text', 'None selected', ...
+    'Position', [8 703 204 24], 'FontColor', 'cyan', 'FontSize', 10, ...
+    'Visible', 'off', 'HorizontalAlignment', 'center');
 
 % view mode
 uilabel(cp, 'Text', 'View Mode:', 'Position', [8 678 200 18], 'FontColor', 'w');
@@ -162,10 +163,11 @@ S.sl_freq         = sl_freq;
 S.sl_frame        = sl_frame;
 S.lbl_freq        = lbl_freq;
 S.lbl_frame       = lbl_frame;
-S.cb_manual_freq  = cb_manual_freq;
-S.txt_manual_freq = txt_manual_freq;
-S.lbl_manual_help = lbl_manual_help;
-S.manual_freqs    = [];  % Parsed manual frequencies
+S.cb_multi_freq      = cb_multi_freq;
+S.btn_select_freqs   = btn_select_freqs;
+S.lbl_selected_freqs = lbl_selected_freqs;
+S.selected_freq_idxs = [];  % Indices of selected frequencies (for multi mode)
+S.manual_freqs       = [];  % Frequencies to use (single or multi)
 S.btn_action      = btn_action;  % Combined Load/Play button
 S.btn_cancel      = btn_cancel;
 S.cancel_loading  = false;  % Flag to cancel loading
@@ -197,7 +199,8 @@ btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
-cb_manual_freq.ValueChangedFcn = @(~,~) cb_toggle_manual(fig);
+cb_multi_freq.ValueChangedFcn = @(~,~) cb_toggle_multi_freq(fig);
+btn_select_freqs.ButtonPushedFcn = @(~,~) cb_open_freq_selector(fig);
 dd_range_start.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 dd_range_end.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 
@@ -220,8 +223,8 @@ function cb_config_changed(fig)
     % Called when any config changes - mark data as needing reload
     S = fig.UserData;
 
-    % Update frequency label if slider mode
-    if ~S.cb_manual_freq.Value
+    % Update frequency label if slider mode (single frequency)
+    if ~S.cb_multi_freq.Value
         S.freq_idx = round(S.sl_freq.Value);
         S.lbl_freq.Text = sprintf('f = %.4f', S.frequencies(S.freq_idx));
     end
@@ -240,23 +243,23 @@ function cb_config_changed(fig)
     fig.UserData = S;
 end
 
-function cb_toggle_manual(fig)
-    % Toggle between slider and manual frequency entry
+function cb_toggle_multi_freq(fig)
+    % Toggle between single frequency slider and multi-frequency selector
     S = fig.UserData;
-    is_manual = S.cb_manual_freq.Value;
+    is_multi = S.cb_multi_freq.Value;
 
-    if is_manual
-        % Show text field, hide slider
+    if is_multi
+        % Show multi-frequency selector, hide slider
         S.sl_freq.Visible = 'off';
         S.lbl_freq.Visible = 'off';
-        S.txt_manual_freq.Visible = 'on';
-        S.lbl_manual_help.Visible = 'on';
+        S.btn_select_freqs.Visible = 'on';
+        S.lbl_selected_freqs.Visible = 'on';
     else
-        % Show slider, hide text field
+        % Show slider, hide multi-selector
         S.sl_freq.Visible = 'on';
         S.lbl_freq.Visible = 'on';
-        S.txt_manual_freq.Visible = 'off';
-        S.lbl_manual_help.Visible = 'off';
+        S.btn_select_freqs.Visible = 'off';
+        S.lbl_selected_freqs.Visible = 'off';
     end
 
     % Mark as needing reload
@@ -265,6 +268,49 @@ function cb_toggle_manual(fig)
     S.btn_action.BackgroundColor = [0.2 0.5 0.3];
 
     fig.UserData = S;
+end
+
+function cb_open_freq_selector(fig)
+    % Open a dialog to select multiple frequencies
+    S = fig.UserData;
+
+    % Create frequency labels
+    freq_labels = arrayfun(@(f) sprintf('%.4f', f), S.frequencies, 'UniformOutput', false);
+
+    % Determine which are currently selected
+    if isempty(S.selected_freq_idxs)
+        initial_sel = [];
+    else
+        initial_sel = S.selected_freq_idxs;
+    end
+
+    % Create selection dialog
+    [sel_idxs, ok] = listdlg('ListString', freq_labels, ...
+        'SelectionMode', 'multiple', ...
+        'InitialValue', initial_sel, ...
+        'ListSize', [200 400], ...
+        'Name', 'Select Frequencies', ...
+        'PromptString', 'Select frequencies to plot (overlay):', ...
+        'OKString', 'OK', 'CancelString', 'Cancel');
+
+    if ok && ~isempty(sel_idxs)
+        S.selected_freq_idxs = sel_idxs;
+
+        % Update label to show selected frequencies
+        if length(sel_idxs) <= 3
+            sel_str = strjoin(freq_labels(sel_idxs), ', ');
+        else
+            sel_str = sprintf('%d frequencies selected', length(sel_idxs));
+        end
+        S.lbl_selected_freqs.Text = sel_str;
+
+        % Mark as needing reload
+        S.data_loaded = false;
+        S.btn_action.Text = 'Load';
+        S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+
+        fig.UserData = S;
+    end
 end
 
 function cb_action(fig)
@@ -428,38 +474,18 @@ function cb_load(fig, force_reload)
     drawnow;
 
     % Determine which frequencies to use
-    is_manual = S.cb_manual_freq.Value;
-    if is_manual
-        % Parse manual frequencies
-        txt = strjoin(S.txt_manual_freq.Value, ' ');
-        parts = strsplit(txt, {',', ' ', ';'});
-        parts = parts(~cellfun(@isempty, parts));
-
-        freqs_to_use = [];
-        for k = 1:length(parts)
-            val = str2double(strtrim(parts{k}));
-            if isnan(val)
-                S.txt_status.Value = {sprintf('ERROR: Invalid frequency "%s"', parts{k})};
-                fig.UserData = S;
-                return;
-            end
-            % Check if frequency is in the valid list (find closest match)
-            [min_diff, idx] = min(abs(S.frequencies - val));
-            if min_diff > 1e-6
-                S.txt_status.Value = {sprintf('ERROR: Frequency %.4f not found', val), ...
-                    'Valid: 0.0004 to 0.10'};
-                fig.UserData = S;
-                return;
-            end
-            freqs_to_use(end+1) = S.frequencies(idx);
-        end
-
-        if isempty(freqs_to_use)
-            S.txt_status.Value = {'ERROR: No valid frequencies entered'};
+    is_multi = S.cb_multi_freq.Value;
+    if is_multi
+        % Use selected frequencies from dialog
+        if isempty(S.selected_freq_idxs)
+            S.txt_status.Value = {'ERROR: No frequencies selected', 'Click "Select Frequencies..." to choose'};
+            S.btn_action.Text = 'Load';
+            S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+            S.btn_cancel.Enable = 'off';
             fig.UserData = S;
             return;
         end
-        S.manual_freqs = unique(freqs_to_use);  % Remove duplicates
+        S.manual_freqs = S.frequencies(S.selected_freq_idxs);
     else
         % Single frequency from slider
         S.manual_freqs = S.frequencies(S.freq_idx);
@@ -522,10 +548,11 @@ function cb_load(fig, force_reload)
     current_load = 0;
 
     for k = 1:length(sims_needed)
-        % Check for cancel request
+        % Check for cancel request (only read cancel flag, don't overwrite S)
         drawnow;  % Allow UI to process cancel button
-        S = fig.UserData;
-        if S.cancel_loading
+        tmp = fig.UserData;
+        if tmp.cancel_loading
+            S.cancel_loading = true;
             lines_out = [lines_out; {'Loading cancelled by user'}];
             break;
         end
@@ -538,10 +565,11 @@ function cb_load(fig, force_reload)
         S.lbl_progress.Text = sprintf('Loading %s...', upper(st));
 
         for fi = 1:length(freqs_to_load)
-            % Check for cancel request
+            % Check for cancel request (only read cancel flag, don't overwrite S)
             drawnow;  % Allow UI to process cancel button
-            S = fig.UserData;
-            if S.cancel_loading
+            tmp = fig.UserData;
+            if tmp.cancel_loading
+                S.cancel_loading = true;
                 break;  % Will be caught by outer loop check
             end
 
