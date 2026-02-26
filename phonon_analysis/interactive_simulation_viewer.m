@@ -110,9 +110,12 @@ dd_range_end = uidropdown(cp, ...
     'Value', '20%', 'Position', [122 383 90 24]);
 
 % ---- main action button (Load -> Play/Pause) and cancel ----
-btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 343 140 30], ...
+btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 343 105 30], ...
     'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
-btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [152 343 60 30], ...
+btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 343 32 30], ...
+    'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 14, ...
+    'Tooltip', 'Clear cache and force reload');
+btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 343 62 30], ...
     'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
 % ---- progress bar ----
@@ -169,6 +172,7 @@ S.lbl_selected_freqs = lbl_selected_freqs;
 S.selected_freq_idxs = [];  % Indices of selected frequencies (for multi mode)
 S.manual_freqs       = [];  % Frequencies to use (single or multi)
 S.btn_action      = btn_action;  % Combined Load/Play button
+S.btn_clear_cache = btn_clear_cache;  % Clear cache button
 S.btn_cancel      = btn_cancel;
 S.cancel_loading  = false;  % Flag to cancel loading
 S.data_loaded     = false;  % Whether data is loaded (button shows Play vs Load)
@@ -194,6 +198,7 @@ sl_frame.ValueChangedFcn  = @(~,~) cb_frame(fig);
 btn_step.ButtonPushedFcn  = @(~,~) cb_step(fig);
 btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
 btn_action.ButtonPushedFcn = @(~,~) cb_action(fig);  % Combined Load/Play
+btn_clear_cache.ButtonPushedFcn = @(~,~) cb_clear_cache(fig);  % Clear cache
 btn_cancel.ButtonPushedFcn = @(~,~) cb_cancel(fig);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
@@ -380,8 +385,8 @@ function cb_action(fig)
     S = fig.UserData;
 
     if ~S.data_loaded
-        % Data not loaded - do load
-        cb_load(fig, true);
+        % Data not loaded - do load (use cache for already-loaded sims)
+        cb_load(fig, false);
     else
         % Data loaded - toggle play/pause
         cb_play(fig);
@@ -405,6 +410,17 @@ function cb_cancel(fig)
         fig.UserData = S;
         S.txt_status.Value = [S.txt_status.Value; {'Cancelling...'}];
     end
+end
+
+function cb_clear_cache(fig)
+    % Clear cache and force reload on next Load
+    S = fig.UserData;
+    S.cache = struct();
+    S.data_loaded = false;
+    S.btn_action.Text = 'Load';
+    S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+    S.txt_status.Value = {'Cache cleared - click Load to reload'};
+    fig.UserData = S;
 end
 
 function cb_frame(fig)
