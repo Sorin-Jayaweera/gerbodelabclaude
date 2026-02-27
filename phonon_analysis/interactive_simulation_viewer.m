@@ -78,59 +78,60 @@ lbl_selected_freqs = uilabel(cp, 'Text', 'None selected', ...
     'Position', [8 703 204 24], 'FontColor', 'cyan', 'FontSize', 10, ...
     'Visible', 'off', 'HorizontalAlignment', 'center');
 
-% view mode
+% view mode (2 rows of buttons)
 uilabel(cp, 'Text', 'View Mode:', 'Position', [8 678 200 18], 'FontColor', 'w');
-btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  651 66 24], 'BackgroundColor', [0.3 0.6 0.3]);
-btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [78 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_kymo = uibutton(cp, 'Text', 'Kymograph', 'Position', [148 651 66 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  651 100 24], 'BackgroundColor', [0.3 0.6 0.3]);
+btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [112 651 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_kymo = uibutton(cp, 'Text', 'Kymograph',  'Position', [8  624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_dela = uibutton(cp, 'Text', 'Delaunay',   'Position', [112 624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
 % playback (Step and Reset only - Play is combined with Load button)
-uilabel(cp, 'Text', 'Playback:', 'Position', [8 618 200 18], 'FontColor', 'w');
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 591 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+uilabel(cp, 'Text', 'Playback:', 'Position', [8 591 200 18], 'FontColor', 'w');
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  564 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 564 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-uilabel(cp, 'Text', 'Frame:', 'Position', [8 533 200 18], 'FontColor', 'w');
-sl_frame  = uislider(cp, 'Position', [8 503 200 3], 'Limits', [1 100], 'Value', 1, ...
+uilabel(cp, 'Text', 'Frame:', 'Position', [8 506 200 18], 'FontColor', 'w');
+sl_frame  = uislider(cp, 'Position', [8 476 200 3], 'Limits', [1 100], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
-lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 473 200 24], ...
+lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 446 200 24], ...
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
-uilabel(cp, 'Text', 'Speed:', 'Position', [8 443 60 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Speed:', 'Position', [8 416 60 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.5x','1x','2x','4x','6x','10x'}, 'Value', '1x', ...
-    'Position', [70 441 80 24]);
+    'Position', [70 414 80 24]);
 
 % ---- load range ----
-uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 408 200 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 381 200 18], 'FontColor', 'w');
 dd_range_start = uidropdown(cp, ...
     'Items', {'0%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
-    'Value', '0%', 'Position', [8 383 90 24]);
-uilabel(cp, 'Text', 'to', 'Position', [102 386 18 18], 'FontColor', 'w');
+    'Value', '0%', 'Position', [8 356 90 24]);
+uilabel(cp, 'Text', 'to', 'Position', [102 359 18 18], 'FontColor', 'w');
 dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
-    'Value', '20%', 'Position', [122 383 90 24]);
+    'Value', '20%', 'Position', [122 356 90 24]);
 
 % ---- main action button (Load -> Play/Pause) and cancel ----
-btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 343 105 30], ...
+btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 316 105 30], ...
     'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
-btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 343 32 30], ...
+btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 316 32 30], ...
     'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 14, ...
     'Tooltip', 'Clear cache and force reload');
-btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 343 62 30], ...
+btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 316 62 30], ...
     'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
 % ---- progress bar ----
-lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 318 204 18], ...
+lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 291 204 18], ...
     'FontColor', 'cyan', 'FontSize', 10, 'HorizontalAlignment', 'center');
 % Progress bar background
-pnl_prog_bg = uipanel(cp, 'Position', [8 308 204 8], 'BorderType', 'none', ...
+pnl_prog_bg = uipanel(cp, 'Position', [8 281 204 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.3 0.3 0.3]);
 % Progress bar fill (width will be adjusted during loading)
-pnl_prog_fill = uipanel(cp, 'Position', [8 308 0 8], 'BorderType', 'none', ...
+pnl_prog_fill = uipanel(cp, 'Position', [8 281 0 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.2 0.7 0.4]);
 
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 283 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 65 204 216], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 256 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 65 204 189], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -181,6 +182,7 @@ S.pnl_prog_fill   = pnl_prog_fill;  % Progress bar fill
 S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
 S.btn_kymo        = btn_kymo;
+S.btn_dela        = btn_dela;
 S.txt_status      = txt_status;
 S.dd_range_start  = dd_range_start;
 S.dd_range_end    = dd_range_end;
@@ -203,6 +205,7 @@ btn_cancel.ButtonPushedFcn = @(~,~) cb_cancel(fig);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
+btn_dela.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'delaunay');
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
 cb_multi_freq.ValueChangedFcn = @(~,~) cb_toggle_multi_freq(fig);
 btn_select_freqs.ButtonPushedFcn = @(~,~) cb_open_freq_selector(fig);
@@ -438,10 +441,12 @@ function cb_mode(fig, mode)
     S.btn_part.BackgroundColor = dim;
     S.btn_wave.BackgroundColor = dim;
     S.btn_kymo.BackgroundColor = dim;
+    S.btn_dela.BackgroundColor = dim;
     switch mode
         case 'particles',  S.btn_part.BackgroundColor = act;
         case 'wavefront',  S.btn_wave.BackgroundColor = act;
         case 'kymograph',  S.btn_kymo.BackgroundColor = act;
+        case 'delaunay',   S.btn_dela.BackgroundColor = act;
     end
     fig.UserData = S;
     render(fig);
@@ -700,7 +705,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 308 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 281 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s (cached) %d%%', upper(st), round(prog_pct*100));
                 drawnow;
 
@@ -759,7 +764,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 308 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 281 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s f=%.4f %d%%', upper(st), freq, round(prog_pct*100));
                 drawnow;
 
@@ -789,7 +794,7 @@ function cb_load(fig, force_reload)
         S.data_loaded = false;
         % Clear progress bar
         S.lbl_progress.Text = 'Cancelled';
-        S.pnl_prog_fill.Position = [8 308 0 8];
+        S.pnl_prog_fill.Position = [8 281 0 8];
         fig.UserData = S;
         return;
     end
@@ -831,7 +836,7 @@ function cb_load(fig, force_reload)
 
     % Clear progress bar and mark complete
     S.lbl_progress.Text = 'Ready';
-    S.pnl_prog_fill.Position = [8 308 204 8];  % Full bar = complete
+    S.pnl_prog_fill.Position = [8 281 204 8];  % Full bar = complete
 
     % Mark data as loaded - button becomes "Play"
     S.data_loaded = true;
@@ -1031,6 +1036,8 @@ function render(fig)
                 draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, fr, axis_len, use_y);
             case 'kymograph'
                 draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+            case 'delaunay'
+                draw_delaunay(ax, xyz, fr, W, H);
         end
     end
 end
@@ -1043,6 +1050,64 @@ function draw_particles(ax, xyz, fr, W, H)
     xlim(ax,[0 W]); ylim(ax,[0 H]);
     % Use 'equal' aspect for correct particle spacing, but allow data rect to fill axes
     daspect(ax, [1 1 1]);  % Equal data aspect ratio
+    set(ax,'Color','k'); hold(ax,'off');
+end
+
+function draw_delaunay(ax, xyz, fr, W, H)
+    % Draw Delaunay triangulation colored by triangle area
+    % Useful for visualizing local density/strain
+    cla(ax); hold(ax,'on');
+
+    x = xyz(:,1,fr);
+    y = xyz(:,2,fr);
+
+    % Compute Delaunay triangulation
+    try
+        DT = delaunayTriangulation(x, y);
+        tri = DT.ConnectivityList;
+    catch
+        % Fallback if delaunayTriangulation fails
+        text(ax, 0.5, 0.5, 'Triangulation failed', 'Color', 'w', ...
+            'HorizontalAlignment', 'center', 'Units', 'normalized');
+        set(ax,'Color','k'); hold(ax,'off');
+        return;
+    end
+
+    % Compute area of each triangle
+    n_tri = size(tri, 1);
+    areas = zeros(n_tri, 1);
+    for t = 1:n_tri
+        i1 = tri(t,1); i2 = tri(t,2); i3 = tri(t,3);
+        % Shoelace formula for triangle area
+        areas(t) = 0.5 * abs((x(i2)-x(i1))*(y(i3)-y(i1)) - (x(i3)-x(i1))*(y(i2)-y(i1)));
+    end
+
+    % Normalize areas for coloring (use percentiles to handle outliers)
+    area_min = prctile(areas, 2);
+    area_max = prctile(areas, 98);
+    area_norm = (areas - area_min) / (area_max - area_min + eps);
+    area_norm = max(0, min(1, area_norm));  % Clamp to [0,1]
+
+    % Create colormap (blue = small/compressed, red = large/expanded)
+    cmap = jet(256);
+    color_idx = round(area_norm * 255) + 1;
+    tri_colors = cmap(color_idx, :);
+
+    % Draw filled triangles
+    patch(ax, 'Faces', tri, 'Vertices', [x, y], ...
+        'FaceVertexCData', tri_colors, 'FaceColor', 'flat', ...
+        'EdgeColor', [0.3 0.3 0.3], 'EdgeAlpha', 0.3, 'LineWidth', 0.5);
+
+    % Add colorbar
+    colormap(ax, jet);
+    cb = colorbar(ax, 'Color', 'w');
+    cb.Label.String = 'Triangle Area (px²)';
+    cb.Label.Color = 'w';
+    % Set colorbar ticks to show actual area values
+    clim(ax, [area_min, area_max]);
+
+    xlim(ax,[0 W]); ylim(ax,[0 H]);
+    daspect(ax, [1 1 1]);
     set(ax,'Color','k'); hold(ax,'off');
 end
 
