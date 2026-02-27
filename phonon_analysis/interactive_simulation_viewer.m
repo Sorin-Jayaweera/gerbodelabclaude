@@ -129,9 +129,13 @@ pnl_prog_bg = uipanel(cp, 'Position', [8 281 204 8], 'BorderType', 'none', ...
 pnl_prog_fill = uipanel(cp, 'Position', [8 281 0 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.2 0.7 0.4]);
 
+% ---- video export ----
+btn_video = uibutton(cp, 'Text', '🎬 Export Video', 'Position', [8 256 204 26], ...
+    'BackgroundColor', [0.4 0.3 0.5], 'FontSize', 11, 'FontWeight', 'bold');
+
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 256 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 65 204 189], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 229 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 65 204 162], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -183,6 +187,7 @@ S.btn_part        = btn_part;
 S.btn_wave        = btn_wave;
 S.btn_kymo        = btn_kymo;
 S.btn_dela        = btn_dela;
+S.btn_video       = btn_video;
 S.txt_status      = txt_status;
 S.dd_range_start  = dd_range_start;
 S.dd_range_end    = dd_range_end;
@@ -202,6 +207,7 @@ btn_reset.ButtonPushedFcn = @(~,~) cb_reset(fig);
 btn_action.ButtonPushedFcn = @(~,~) cb_action(fig);  % Combined Load/Play
 btn_clear_cache.ButtonPushedFcn = @(~,~) cb_clear_cache(fig);  % Clear cache
 btn_cancel.ButtonPushedFcn = @(~,~) cb_cancel(fig);
+btn_video.ButtonPushedFcn = @(~,~) cb_open_video_dialog(fig);
 btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
@@ -1341,4 +1347,376 @@ function draw_kymograph_fast(ax, kymo, axis_len, is_topdriven)
     end
     xlabel(ax,'Frame'); ylabel(ax, ylabel_str);
     set(ax,'YDir','normal');
+end
+
+%% ==================== VIDEO EXPORT ====================
+
+function cb_open_video_dialog(fig)
+    % Open dialog to configure video export
+    S = fig.UserData;
+
+    if ~S.data_loaded
+        S.txt_status.Value = {'Load data first before exporting video'};
+        fig.UserData = S;
+        return;
+    end
+
+    % Create dialog figure
+    dlg = uifigure('Name', 'Export Video', 'Position', [300 200 400 450], ...
+        'Color', [0.2 0.2 0.2], 'Resize', 'off');
+
+    % Title
+    uilabel(dlg, 'Text', 'Video Export Options', ...
+        'Position', [10 410 380 30], 'FontColor', 'w', 'FontSize', 16, ...
+        'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+
+    % Export mode
+    uilabel(dlg, 'Text', 'Export Mode:', 'Position', [20 370 100 20], ...
+        'FontColor', 'w', 'FontWeight', 'bold');
+    bg_mode = uibuttongroup(dlg, 'Position', [20 310 360 60], ...
+        'BackgroundColor', [0.25 0.25 0.25], 'BorderType', 'none');
+    rb_combined = uiradiobutton(bg_mode, 'Text', 'All panels combined (current layout)', ...
+        'Position', [10 30 340 22], 'FontColor', 'w', 'Value', true);
+    rb_individual = uiradiobutton(bg_mode, 'Text', 'Individual panels (one file per panel)', ...
+        'Position', [10 5 340 22], 'FontColor', 'w');
+
+    % Panel selection (for individual mode)
+    uilabel(dlg, 'Text', 'Panels to export (for individual mode):', ...
+        'Position', [20 275 300 20], 'FontColor', 'w', 'FontWeight', 'bold');
+    pnl_sel = uipanel(dlg, 'Position', [20 155 360 115], ...
+        'BackgroundColor', [0.15 0.15 0.15], 'BorderType', 'none');
+
+    % Create checkboxes for each currently loaded view
+    panel_cbs = {};
+    n_views = length(S.view_configs);
+    for i = 1:min(n_views, 8)  % Max 8 panels
+        vc = S.view_configs{i};
+        label = sprintf('%s (%s)', upper(vc.sim_type), ternary(vc.use_y, 'Y', 'X'));
+        row = ceil(i/2);
+        col = mod(i-1, 2);
+        panel_cbs{i} = uicheckbox(pnl_sel, 'Text', label, 'Value', true, ...
+            'Position', [10 + col*175, 90 - (row-1)*22, 170, 20], 'FontColor', 'w');
+    end
+
+    % View mode
+    uilabel(dlg, 'Text', 'View Mode:', 'Position', [20 120 100 20], ...
+        'FontColor', 'w', 'FontWeight', 'bold');
+    dd_view = uidropdown(dlg, 'Items', {'Current view', 'Particles', 'Wavefront', 'Kymograph', 'Delaunay'}, ...
+        'Value', 'Current view', 'Position', [130 118 150 24]);
+
+    % Output folder
+    uilabel(dlg, 'Text', 'Output Folder:', 'Position', [20 85 100 20], ...
+        'FontColor', 'w', 'FontWeight', 'bold');
+    ef_folder = uieditfield(dlg, 'Value', pwd, 'Position', [20 58 300 24]);
+    btn_browse = uibutton(dlg, 'Text', '...', 'Position', [325 58 55 24], ...
+        'BackgroundColor', [0.3 0.3 0.4]);
+
+    % File prefix
+    uilabel(dlg, 'Text', 'File Prefix:', 'Position', [20 30 80 20], 'FontColor', 'w');
+    ef_prefix = uieditfield(dlg, 'Value', 'simulation', 'Position', [100 28 180 24]);
+
+    % Export and Cancel buttons
+    btn_export = uibutton(dlg, 'Text', 'Export', 'Position', [200 8 90 28], ...
+        'BackgroundColor', [0.3 0.5 0.3], 'FontWeight', 'bold');
+    btn_cancel_dlg = uibutton(dlg, 'Text', 'Cancel', 'Position', [300 8 80 28], ...
+        'BackgroundColor', [0.5 0.3 0.3]);
+
+    % Store handles in dialog UserData
+    dlg.UserData = struct('main_fig', fig, 'rb_combined', rb_combined, ...
+        'rb_individual', rb_individual, 'panel_cbs', {panel_cbs}, ...
+        'dd_view', dd_view, 'ef_folder', ef_folder, 'ef_prefix', ef_prefix);
+
+    % Wire callbacks
+    btn_browse.ButtonPushedFcn = @(~,~) video_browse_folder(dlg);
+    btn_export.ButtonPushedFcn = @(~,~) video_start_export(dlg);
+    btn_cancel_dlg.ButtonPushedFcn = @(~,~) close(dlg);
+end
+
+function result = ternary(cond, true_val, false_val)
+    if cond
+        result = true_val;
+    else
+        result = false_val;
+    end
+end
+
+function video_browse_folder(dlg)
+    folder = uigetdir(dlg.UserData.ef_folder.Value, 'Select Output Folder');
+    if folder ~= 0
+        dlg.UserData.ef_folder.Value = folder;
+    end
+end
+
+function video_start_export(dlg)
+    d = dlg.UserData;
+    fig = d.main_fig;
+    S = fig.UserData;
+
+    % Get settings
+    is_combined = d.rb_combined.Value;
+    view_mode = d.dd_view.Value;
+    output_folder = d.ef_folder.Value;
+    file_prefix = d.ef_prefix.Value;
+
+    % Determine view mode
+    if strcmp(view_mode, 'Current view')
+        export_view = S.view_mode;
+    else
+        export_view = lower(view_mode);
+    end
+
+    % Validate output folder
+    if ~exist(output_folder, 'dir')
+        try
+            mkdir(output_folder);
+        catch
+            uialert(dlg, 'Cannot create output folder', 'Error');
+            return;
+        end
+    end
+
+    close(dlg);
+
+    % Update status
+    S.txt_status.Value = {'Starting video export...'};
+    fig.UserData = S;
+    drawnow;
+
+    if is_combined
+        % Export all panels combined
+        export_combined_video(fig, export_view, output_folder, file_prefix);
+    else
+        % Export individual panels
+        selected_panels = [];
+        for i = 1:length(d.panel_cbs)
+            if d.panel_cbs{i}.Value
+                selected_panels(end+1) = i;
+            end
+        end
+        if isempty(selected_panels)
+            S.txt_status.Value = {'No panels selected for export'};
+            fig.UserData = S;
+            return;
+        end
+        export_individual_videos(fig, export_view, output_folder, file_prefix, selected_panels);
+    end
+end
+
+function export_combined_video(fig, view_mode, output_folder, file_prefix)
+    % Export all panels as single video with current layout
+    S = fig.UserData;
+    n_frames = S.max_frames;
+
+    % Create output filename
+    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+    filename = fullfile(output_folder, sprintf('%s_combined_%s_%s.mp4', file_prefix, view_mode, timestamp));
+
+    % Create VideoWriter
+    try
+        vw = VideoWriter(filename, 'MPEG-4');
+        vw.FrameRate = 30;
+        vw.Quality = 95;
+        open(vw);
+    catch ME
+        S.txt_status.Value = {sprintf('Failed to create video: %s', ME.message)};
+        fig.UserData = S;
+        return;
+    end
+
+    % Store original view mode and frame
+    orig_view = S.view_mode;
+    orig_frame = S.frame;
+
+    % Set export view mode
+    S.view_mode = view_mode;
+    fig.UserData = S;
+
+    % Create a figure for high-res rendering
+    export_fig = figure('Position', [100 100 1920 1080], 'Color', 'k', 'Visible', 'off');
+
+    try
+        % Get grid size
+        n_panels = length(S.axs);
+        [rows, cols] = get_grid_size(n_panels);
+
+        % Export each frame
+        for fr = 1:n_frames
+            S.frame = fr;
+            fig.UserData = S;
+
+            % Clear export figure
+            clf(export_fig);
+
+            % Render each panel to export figure
+            for idx = 1:n_panels
+                if idx > length(S.view_configs); continue; end
+                vc = S.view_configs{idx};
+                st = vc.sim_type;
+                use_y = vc.use_y;
+
+                if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
+
+                xyz = S.data.(st);
+                n_fr = size(xyz, 3);
+                frame = min(fr, n_fr);
+                p = S.params.(st);
+                W = p.width; H = p.height;
+                axis_len = ternary(use_y, H, W);
+
+                % Create subplot
+                ax = subplot(rows, cols, idx, 'Parent', export_fig);
+                set(ax, 'Color', 'k', 'XColor', 'w', 'YColor', 'w');
+                title(ax, sprintf('%s (%s)', upper(st), ternary(use_y, 'Y', 'X')), 'Color', 'w');
+
+                % Draw based on view mode
+                switch view_mode
+                    case 'particles'
+                        draw_particles(ax, xyz, frame, W, H);
+                    case 'wavefront'
+                        if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                            multi_data = S.multi_freq_data.(st);
+                        else
+                            multi_data = {xyz};
+                        end
+                        draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
+                    case 'kymograph'
+                        draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+                    case 'delaunay'
+                        draw_delaunay(ax, xyz, frame, W, H);
+                end
+            end
+
+            % Capture frame
+            frame_img = getframe(export_fig);
+            writeVideo(vw, frame_img.cdata);
+
+            % Update progress
+            if mod(fr, 50) == 0 || fr == n_frames
+                S.txt_status.Value = {sprintf('Exporting combined: %d/%d frames', fr, n_frames)};
+                drawnow;
+            end
+        end
+
+        close(vw);
+        close(export_fig);
+
+        % Restore original state
+        S.view_mode = orig_view;
+        S.frame = orig_frame;
+        S.txt_status.Value = {sprintf('Video saved: %s', filename)};
+        fig.UserData = S;
+        render(fig);
+
+    catch ME
+        close(vw);
+        close(export_fig);
+        S.view_mode = orig_view;
+        S.frame = orig_frame;
+        S.txt_status.Value = {sprintf('Export failed: %s', ME.message)};
+        fig.UserData = S;
+        render(fig);
+    end
+end
+
+function export_individual_videos(fig, view_mode, output_folder, file_prefix, selected_panels)
+    % Export selected panels as individual videos
+    S = fig.UserData;
+    n_frames = S.max_frames;
+
+    % Store original state
+    orig_view = S.view_mode;
+    orig_frame = S.frame;
+    S.view_mode = view_mode;
+    fig.UserData = S;
+
+    timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+    total_exported = 0;
+
+    for panel_idx = selected_panels
+        if panel_idx > length(S.view_configs); continue; end
+        vc = S.view_configs{panel_idx};
+        st = vc.sim_type;
+        use_y = vc.use_y;
+
+        if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
+
+        xyz = S.data.(st);
+        p = S.params.(st);
+        W = p.width; H = p.height;
+        axis_len = ternary(use_y, H, W);
+
+        % Create filename
+        axis_label = ternary(use_y, 'Y', 'X');
+        filename = fullfile(output_folder, sprintf('%s_%s_%s_%s_%s.mp4', ...
+            file_prefix, upper(st), axis_label, view_mode, timestamp));
+
+        % Create VideoWriter
+        try
+            vw = VideoWriter(filename, 'MPEG-4');
+            vw.FrameRate = 30;
+            vw.Quality = 95;
+            open(vw);
+        catch ME
+            S.txt_status.Value = {sprintf('Failed to create video for %s: %s', st, ME.message)};
+            continue;
+        end
+
+        % Create figure for rendering (1080p)
+        export_fig = figure('Position', [100 100 1920 1080], 'Color', 'k', 'Visible', 'off');
+        ax = axes(export_fig, 'Color', 'k', 'XColor', 'w', 'YColor', 'w');
+
+        try
+            n_fr = size(xyz, 3);
+
+            for fr = 1:n_frames
+                frame = min(fr, n_fr);
+                cla(ax);
+
+                % Draw based on view mode
+                switch view_mode
+                    case 'particles'
+                        draw_particles(ax, xyz, frame, W, H);
+                    case 'wavefront'
+                        if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                            multi_data = S.multi_freq_data.(st);
+                        else
+                            multi_data = {xyz};
+                        end
+                        draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
+                    case 'kymograph'
+                        draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+                    case 'delaunay'
+                        draw_delaunay(ax, xyz, frame, W, H);
+                end
+
+                title(ax, sprintf('%s (%s) - Frame %d', upper(st), axis_label, frame), 'Color', 'w', 'FontSize', 14);
+
+                % Capture and write frame
+                frame_img = getframe(export_fig);
+                writeVideo(vw, frame_img.cdata);
+
+                % Update progress periodically
+                if mod(fr, 100) == 0
+                    S.txt_status.Value = {sprintf('Exporting %s_%s: %d/%d', upper(st), axis_label, fr, n_frames)};
+                    drawnow;
+                end
+            end
+
+            close(vw);
+            close(export_fig);
+            total_exported = total_exported + 1;
+
+        catch ME
+            close(vw);
+            close(export_fig);
+            S.txt_status.Value = {sprintf('Export failed for %s: %s', st, ME.message)};
+        end
+    end
+
+    % Restore original state
+    S.view_mode = orig_view;
+    S.frame = orig_frame;
+    S.txt_status.Value = {sprintf('Exported %d videos to: %s', total_exported, output_folder)};
+    fig.UserData = S;
+    render(fig);
 end
