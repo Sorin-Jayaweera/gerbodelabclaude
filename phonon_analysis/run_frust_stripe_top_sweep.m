@@ -116,8 +116,13 @@ for idx = 1:length(pending_indices)
     % Initialize FRUSTRATED STRIPE crystal
     initialize_grains_frust(sim);
 
-    % Driven particles: TOP edge (Y > sim_height - drive_width)
-    driven_indices = sim.initial_particles(:,2) > (sim_height - drive_width);
+    % Find the ACTUAL top of the crystal (not assumed sim_height)
+    actual_max_y = max(sim.initial_particles(:,2));
+    fprintf('  Crystal extent: Y = [%.1f, %.1f]\n', ...
+        min(sim.initial_particles(:,2)), actual_max_y);
+
+    % Driven particles: TOP edge based on ACTUAL crystal extent
+    driven_indices = sim.initial_particles(:,2) > (actual_max_y - drive_width);
     equilibrium_y  = sim.initial_particles(driven_indices, 2);
     equilibrium_x  = sim.initial_particles(driven_indices, 1);
 
@@ -129,6 +134,11 @@ for idx = 1:length(pending_indices)
     num_particles = size(sim.initial_particles, 1);
     fprintf('  Particles: %d total, %d driven (top), %d fixed (bottom)\n', ...
         num_particles, sum(driven_indices), sum(fixed_indices));
+
+    % Validate we have driven particles
+    if sum(driven_indices) == 0
+        error('No driven particles found! Crystal does not extend high enough.');
+    end
 
     mkdir(sim_full_path);
 
@@ -198,6 +208,7 @@ for idx = 1:length(pending_indices)
     sim_params.domain_style          = 'frust_stripe';
     sim_params.width                 = sim_width;
     sim_params.height                = sim_height;
+    sim_params.actual_max_y          = actual_max_y;  % Actual crystal top
     sim_params.num_frames            = num_frames;
     sim_params.data_saving_frequency = data_saving_frequency;
     sim_params.image_saving_frequency = image_saving_frequency;
