@@ -85,57 +85,61 @@ btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [112 651 100 24], 'Bac
 btn_kymo = uibutton(cp, 'Text', 'Kymograph',  'Position', [8  624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 btn_dela = uibutton(cp, 'Text', 'Delaunay',   'Position', [112 624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-% playback (Step and Reset only - Play is combined with Load button)
-uilabel(cp, 'Text', 'Playback:', 'Position', [8 591 200 18], 'FontColor', 'w');
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  564 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 564 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+% Sync graphs checkbox
+cb_sync_graphs = uicheckbox(cp, 'Text', 'Sync pan/zoom across panels', 'Value', false, ...
+    'Position', [8 597 200 20], 'FontColor', 'w');
 
-uilabel(cp, 'Text', 'Frame:', 'Position', [8 506 200 18], 'FontColor', 'w');
-sl_frame  = uislider(cp, 'Position', [8 476 200 3], 'Limits', [1 100], 'Value', 1, ...
+% playback (Step and Reset only - Play is combined with Load button)
+uilabel(cp, 'Text', 'Playback:', 'Position', [8 570 200 18], 'FontColor', 'w');
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  543 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 543 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+
+uilabel(cp, 'Text', 'Frame:', 'Position', [8 485 200 18], 'FontColor', 'w');
+sl_frame  = uislider(cp, 'Position', [8 455 200 3], 'Limits', [1 100], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
-lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 446 200 24], ...
+lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 425 200 24], ...
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
-uilabel(cp, 'Text', 'Speed:', 'Position', [8 416 60 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Speed:', 'Position', [8 395 60 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.5x','1x','2x','4x','6x','10x'}, 'Value', '1x', ...
-    'Position', [70 414 80 24]);
+    'Position', [70 393 80 24]);
 
 % ---- load range ----
-uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 381 200 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 360 200 18], 'FontColor', 'w');
 dd_range_start = uidropdown(cp, ...
     'Items', {'0%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
-    'Value', '0%', 'Position', [8 356 90 24]);
-uilabel(cp, 'Text', 'to', 'Position', [102 359 18 18], 'FontColor', 'w');
+    'Value', '0%', 'Position', [8 335 90 24]);
+uilabel(cp, 'Text', 'to', 'Position', [102 338 18 18], 'FontColor', 'w');
 dd_range_end = uidropdown(cp, ...
     'Items', {'20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
-    'Value', '20%', 'Position', [122 356 90 24]);
+    'Value', '20%', 'Position', [122 335 90 24]);
 
 % ---- main action button (Load -> Play/Pause) and cancel ----
-btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 316 105 30], ...
+btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 295 105 30], ...
     'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
-btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 316 32 30], ...
+btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 295 32 30], ...
     'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 14, ...
     'Tooltip', 'Clear cache and force reload');
-btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 316 62 30], ...
+btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 295 62 30], ...
     'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
 % ---- progress bar ----
-lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 291 204 18], ...
+lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 270 204 18], ...
     'FontColor', 'cyan', 'FontSize', 10, 'HorizontalAlignment', 'center');
 % Progress bar background
-pnl_prog_bg = uipanel(cp, 'Position', [8 281 204 8], 'BorderType', 'none', ...
+pnl_prog_bg = uipanel(cp, 'Position', [8 260 204 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.3 0.3 0.3]);
 % Progress bar fill (width will be adjusted during loading)
-pnl_prog_fill = uipanel(cp, 'Position', [8 281 0 8], 'BorderType', 'none', ...
+pnl_prog_fill = uipanel(cp, 'Position', [8 260 0 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.2 0.7 0.4]);
 
 % ---- video export ----
-btn_video = uibutton(cp, 'Text', '🎬 Export Video', 'Position', [8 256 204 26], ...
+btn_video = uibutton(cp, 'Text', '🎬 Export Video', 'Position', [8 230 204 26], ...
     'BackgroundColor', [0.4 0.3 0.5], 'FontSize', 11, 'FontWeight', 'bold');
 
 % ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 229 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 65 204 162], 'Editable', 'off', ...
+uilabel(cp, 'Text', 'Status:', 'Position', [8 205 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 65 204 138], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically) ----
@@ -188,6 +192,7 @@ S.btn_wave        = btn_wave;
 S.btn_kymo        = btn_kymo;
 S.btn_dela        = btn_dela;
 S.btn_video       = btn_video;
+S.cb_sync_graphs  = cb_sync_graphs;
 S.txt_status      = txt_status;
 S.dd_range_start  = dd_range_start;
 S.dd_range_end    = dd_range_end;
@@ -212,6 +217,7 @@ btn_part.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'particles');
 btn_wave.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'wavefront');
 btn_kymo.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'kymograph');
 btn_dela.ButtonPushedFcn  = @(~,~) cb_mode(fig, 'delaunay');
+cb_sync_graphs.ValueChangedFcn = @(~,~) cb_toggle_sync(fig);
 dd_speed.ValueChangedFcn  = @(src,~) cb_speed(fig, src.Value);
 cb_multi_freq.ValueChangedFcn = @(~,~) cb_toggle_multi_freq(fig);
 btn_select_freqs.ButtonPushedFcn = @(~,~) cb_open_freq_selector(fig);
@@ -456,6 +462,40 @@ function cb_mode(fig, mode)
     end
     fig.UserData = S;
     render(fig);
+end
+
+function cb_toggle_sync(fig)
+    % Toggle synced pan/zoom across all panels
+    S = fig.UserData;
+    sync_enabled = S.cb_sync_graphs.Value;
+
+    if isempty(S.axs)
+        return;
+    end
+
+    % Get all valid axes handles
+    valid_axs = [];
+    for i = 1:length(S.axs)
+        if isvalid(S.axs{i})
+            valid_axs = [valid_axs, S.axs{i}];
+        end
+    end
+
+    if isempty(valid_axs)
+        return;
+    end
+
+    if sync_enabled
+        % Link all axes for synchronized pan/zoom
+        linkaxes(valid_axs, 'xy');
+        S.txt_status.Value = [S.txt_status.Value; {'Sync enabled - pan/zoom synced across panels'}];
+    else
+        % Unlink axes
+        linkaxes(valid_axs, 'off');
+        S.txt_status.Value = [S.txt_status.Value; {'Sync disabled - panels independent'}];
+    end
+
+    fig.UserData = S;
 end
 
 function cb_play(fig)
@@ -711,7 +751,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 281 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 260 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s (cached) %d%%', upper(st), round(prog_pct*100));
                 drawnow;
 
@@ -770,7 +810,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 281 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 260 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s f=%.4f %d%%', upper(st), freq, round(prog_pct*100));
                 drawnow;
 
@@ -800,7 +840,7 @@ function cb_load(fig, force_reload)
         S.data_loaded = false;
         % Clear progress bar
         S.lbl_progress.Text = 'Cancelled';
-        S.pnl_prog_fill.Position = [8 281 0 8];
+        S.pnl_prog_fill.Position = [8 260 0 8];
         fig.UserData = S;
         return;
     end
@@ -842,7 +882,7 @@ function cb_load(fig, force_reload)
 
     % Clear progress bar and mark complete
     S.lbl_progress.Text = 'Ready';
-    S.pnl_prog_fill.Position = [8 281 204 8];  % Full bar = complete
+    S.pnl_prog_fill.Position = [8 260 204 8];  % Full bar = complete
 
     % Mark data as loaded - button becomes "Play"
     S.data_loaded = true;
@@ -852,6 +892,11 @@ function cb_load(fig, force_reload)
 
     fig.UserData = S;
     render(fig);
+
+    % Apply sync setting if enabled
+    if S.cb_sync_graphs.Value
+        cb_toggle_sync(fig);
+    end
 end
 
 function [xyz, n_total, sim_params] = load_simulation_fast(plist_path, par_path, freq, start_pct, end_pct)
@@ -1052,7 +1097,13 @@ function draw_particles(ax, xyz, fr, W, H)
     cla(ax); hold(ax,'on');
     x = xyz(:,1,fr); y = xyz(:,2,fr); z = xyz(:,3,fr);
     zn = (z - min(z)) / (max(z)-min(z)+eps);
-    scatter(ax, x, y, 6, [zn, zeros(size(zn)), 1-zn], 'filled');
+    % Cyan-to-red colormap for dark background visibility
+    % cyan (0,1,1) -> white (1,1,1) -> red (1,0,0)
+    colors = zeros(length(zn), 3);
+    colors(:,1) = zn;                    % R: 0 -> 1
+    colors(:,2) = 1 - abs(2*zn - 1);     % G: 0 -> 1 -> 0 (peaks at middle)
+    colors(:,3) = 1 - zn;                % B: 1 -> 0
+    scatter(ax, x, y, 15, colors, 'filled');  % Size 15 (was 6)
     xlim(ax,[0 W]); ylim(ax,[0 H]);
     % Use 'equal' aspect for correct particle spacing, but allow data rect to fill axes
     daspect(ax, [1 1 1]);  % Equal data aspect ratio
