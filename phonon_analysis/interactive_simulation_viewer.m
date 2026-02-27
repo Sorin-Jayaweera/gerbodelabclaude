@@ -50,10 +50,11 @@ cb_y = cell(6,1);  % Y axis checkboxes
 for i = 1:6
     y_pos = 898 - i*20;
     uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 130 18], 'FontColor', 'w');
-    % Default: X checked for first 4 sims
-    cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', (i <= 4), ...
+    % Default: X for side-driven sims (1,2,3,5), Y for top-driven sims (4,6)
+    is_top_driven = ismember(i, [4, 6]);  % topdriven and frust_top
+    cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', ~is_top_driven && (i <= 5), ...
         'Position', [140 y_pos 25 18], 'FontColor', 'w');
-    cb_y{i} = uicheckbox(cp, 'Text', '', 'Value', false, ...
+    cb_y{i} = uicheckbox(cp, 'Text', '', 'Value', is_top_driven, ...
         'Position', [170 y_pos 25 18], 'FontColor', 'w');
 end
 
