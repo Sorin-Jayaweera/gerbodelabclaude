@@ -54,11 +54,11 @@ plot_container = uipanel(fig, 'BorderType', 'none', ...
 % ---- simulation + axis checkboxes with graph number buttons ----
 % Each sim has: [Graph#] Label [X] [Y]
 uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 60 18], 'FontColor', 'w', 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'Fig', 'Position', [75 898 25 18], 'FontColor', [0.7 0.7 0.7], 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'Fig', 'Position', [130 898 25 18], 'FontColor', [0.7 0.7 0.7], 'FontWeight', 'bold');
 uilabel(cp, 'Text', 'X', 'Position', [165 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
 uilabel(cp, 'Text', 'Y', 'Position', [190 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
 
-cb_labels = {'Chevron (side)', 'Stripe (side)', 'Random (side)', 'Chevron (top)', 'Frust (side)', 'Frust (top)'};
+cb_labels = {'Chev side', 'Stripe side', 'Rand side', 'Chev top', 'Frust side', 'Frust top'};
 cb_x = cell(6,1);  % X axis checkboxes
 cb_y = cell(6,1);  % Y axis checkboxes
 btn_graph_num = cell(6,1);  % Graph number buttons (click to cycle)
@@ -74,12 +74,12 @@ graph_colors = [
 ];
 
 for i = 1:6
-    y_pos = 898 - i*22;
-    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 65 18], 'FontColor', 'w', 'FontSize', 10);
+    y_pos = 898 - i*20;
+    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 80 18], 'FontColor', 'w', 'FontSize', 10);
 
     % Graph number button - click to cycle through graph numbers
     btn_graph_num{i} = uibutton(cp, 'Text', num2str(i), ...
-        'Position', [75 y_pos 22 18], ...
+        'Position', [130 y_pos 22 18], ...
         'BackgroundColor', graph_colors(i,:), 'FontColor', 'w', 'FontSize', 10, ...
         'FontWeight', 'bold', 'Tooltip', 'Click to change graph assignment');
 
@@ -91,89 +91,89 @@ for i = 1:6
         'Position', [185 y_pos 25 18], 'FontColor', 'w');
 end
 
-% frequency controls
-uilabel(cp, 'Text', 'Frequency:', 'Position', [8 768 70 18], 'FontColor', 'w');
-cb_multi_freq = uicheckbox(cp, 'Text', 'Multi', 'Value', false, ...
-    'Position', [85 768 60 18], 'FontColor', 'w');
+% frequency controls - starts after sim checkboxes (898 - 6*20 - 15 = 763)
+uilabel(cp, 'Text', 'Frequency:', 'Position', [8 763 70 18], 'FontColor', 'w');
 
 % Slider mode (default - single frequency)
 sl_freq = uislider(cp, 'Position', [8 738 200 3], ...
     'Limits', [1 length(all_frequencies)], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
+% Frequency label with Multi checkbox on same line
 lbl_freq = uilabel(cp, 'Text', sprintf('f = %.4f', all_frequencies(1)), ...
-    'Position', [8 708 200 24], 'FontColor', 'cyan', 'FontSize', 13, ...
-    'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+    'Position', [8 710 120 20], 'FontColor', 'cyan', 'FontSize', 13, ...
+    'FontWeight', 'bold', 'HorizontalAlignment', 'left');
+cb_multi_freq = uicheckbox(cp, 'Text', 'Multi', 'Value', false, ...
+    'Position', [135 710 65 20], 'FontColor', 'w');
 
 % Multi-frequency mode (hidden by default) - button to open selector + label showing selections
 btn_select_freqs = uibutton(cp, 'Text', 'Select Frequencies...', ...
-    'Position', [8 728 204 24], 'Visible', 'off', ...
+    'Position', [8 710 130 22], 'Visible', 'off', ...
     'BackgroundColor', [0.3 0.3 0.5]);
 lbl_selected_freqs = uilabel(cp, 'Text', 'None selected', ...
-    'Position', [8 703 204 24], 'FontColor', 'cyan', 'FontSize', 10, ...
+    'Position', [8 688 204 20], 'FontColor', 'cyan', 'FontSize', 10, ...
     'Visible', 'off', 'HorizontalAlignment', 'center');
 
 % view mode (2 rows of buttons)
-uilabel(cp, 'Text', 'View Mode:', 'Position', [8 678 200 18], 'FontColor', 'w');
-btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  651 100 24], 'BackgroundColor', [0.3 0.6 0.3]);
-btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [112 651 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_kymo = uibutton(cp, 'Text', 'Kymograph',  'Position', [8  624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_dela = uibutton(cp, 'Text', 'Delaunay',   'Position', [112 624 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+uilabel(cp, 'Text', 'View Mode:', 'Position', [8 665 200 18], 'FontColor', 'w');
+btn_part = uibutton(cp, 'Text', 'Particles',  'Position', [8  640 100 24], 'BackgroundColor', [0.3 0.6 0.3]);
+btn_wave = uibutton(cp, 'Text', 'Wavefront',  'Position', [112 640 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_kymo = uibutton(cp, 'Text', 'Kymograph',  'Position', [8  614 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_dela = uibutton(cp, 'Text', 'Delaunay',   'Position', [112 614 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
 % Sync graphs checkbox
 cb_sync_graphs = uicheckbox(cp, 'Text', 'Sync pan/zoom across panels', 'Value', false, ...
-    'Position', [8 597 200 20], 'FontColor', 'w');
+    'Position', [8 590 200 20], 'FontColor', 'w');
 
 % playback (Step and Reset only - Play is combined with Load button)
-uilabel(cp, 'Text', 'Playback:', 'Position', [8 570 200 18], 'FontColor', 'w');
-btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  543 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
-btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 543 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+uilabel(cp, 'Text', 'Playback:', 'Position', [8 565 200 18], 'FontColor', 'w');
+btn_step  = uibutton(cp, 'Text', 'Step ▶',  'Position', [8  540 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
+btn_reset = uibutton(cp, 'Text', '⟲ Reset', 'Position', [112 540 100 24], 'BackgroundColor', [0.4 0.4 0.4]);
 
-uilabel(cp, 'Text', 'Frame:', 'Position', [8 485 200 18], 'FontColor', 'w');
-sl_frame  = uislider(cp, 'Position', [8 455 200 3], 'Limits', [1 100], 'Value', 1, ...
+sl_frame  = uislider(cp, 'Position', [8 490 200 3], 'Limits', [1 100], 'Value', 1, ...
     'MajorTicks', [], 'MinorTicks', []);
-lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 425 200 24], ...
+lbl_frame = uilabel(cp, 'Text', 'Frame: 1 / 100', 'Position', [8 465 200 20], ...
     'FontColor', 'w', 'HorizontalAlignment', 'center');
 
-uilabel(cp, 'Text', 'Speed:', 'Position', [8 395 60 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Speed:', 'Position', [8 440 50 18], 'FontColor', 'w');
 dd_speed = uidropdown(cp, 'Items', {'0.5x','1x','2x','4x','6x','10x'}, 'Value', '1x', ...
-    'Position', [70 393 80 24]);
+    'Position', [60 438 70 24]);
 
 % ---- load range ----
-uilabel(cp, 'Text', 'Load range (%):', 'Position', [8 360 200 18], 'FontColor', 'w');
+uilabel(cp, 'Text', 'Load range:', 'Position', [8 410 80 18], 'FontColor', 'w');
 dd_range_start = uidropdown(cp, ...
     'Items', {'0%','1%','5%','10%','20%','30%','40%','50%','60%','70%','80%','90%'}, ...
-    'Value', '0%', 'Position', [8 335 90 24]);
-uilabel(cp, 'Text', 'to', 'Position', [102 338 18 18], 'FontColor', 'w');
+    'Value', '0%', 'Position', [8 385 70 24]);
+uilabel(cp, 'Text', 'to', 'Position', [82 388 18 18], 'FontColor', 'w');
 dd_range_end = uidropdown(cp, ...
     'Items', {'1%','5%','10%','20%','30%','40%','50%','60%','70%','80%','90%','100%'}, ...
-    'Value', '20%', 'Position', [122 335 90 24]);
+    'Value', '20%', 'Position', [100 385 70 24]);
 
 % ---- main action button (Load -> Play/Pause) and cancel ----
-btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 295 105 30], ...
-    'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 14, 'FontWeight', 'bold');
-btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [115 295 32 30], ...
-    'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 14, ...
+btn_action = uibutton(cp, 'Text', 'Load', 'Position', [8 345 100 28], ...
+    'BackgroundColor', [0.2 0.5 0.3], 'FontSize', 13, 'FontWeight', 'bold');
+btn_clear_cache = uibutton(cp, 'Text', '↻', 'Position', [112 345 30 28], ...
+    'BackgroundColor', [0.3 0.3 0.4], 'FontSize', 13, ...
     'Tooltip', 'Clear cache and force reload');
-btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [150 295 62 30], ...
+btn_cancel = uibutton(cp, 'Text', 'Stop', 'Position', [146 345 60 28], ...
     'BackgroundColor', [0.5 0.2 0.2], 'FontSize', 11, 'Enable', 'off');
 
 % ---- progress bar ----
-lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 270 204 18], ...
+lbl_progress = uilabel(cp, 'Text', '', 'Position', [8 320 204 18], ...
     'FontColor', 'cyan', 'FontSize', 10, 'HorizontalAlignment', 'center');
 % Progress bar background
-pnl_prog_bg = uipanel(cp, 'Position', [8 260 204 8], 'BorderType', 'none', ...
+pnl_prog_bg = uipanel(cp, 'Position', [8 310 204 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.3 0.3 0.3]);
 % Progress bar fill (width will be adjusted during loading)
-pnl_prog_fill = uipanel(cp, 'Position', [8 260 0 8], 'BorderType', 'none', ...
+pnl_prog_fill = uipanel(cp, 'Position', [8 310 0 8], 'BorderType', 'none', ...
     'BackgroundColor', [0.2 0.7 0.4]);
 
 % ---- video export ----
-btn_video = uibutton(cp, 'Text', '🎬 Export Video', 'Position', [8 230 204 26], ...
+btn_video = uibutton(cp, 'Text', '🎬 Export Video', 'Position', [8 280 204 26], ...
     'BackgroundColor', [0.4 0.3 0.5], 'FontSize', 11, 'FontWeight', 'bold');
 
-% ---- status ----
-uilabel(cp, 'Text', 'Status:', 'Position', [8 205 200 18], 'FontColor', 'w');
-txt_status = uitextarea(cp, 'Position', [8 65 204 138], 'Editable', 'off', ...
+% ---- status (smaller window) ----
+uilabel(cp, 'Text', 'Status:', 'Position', [8 255 200 18], 'FontColor', 'w');
+txt_status = uitextarea(cp, 'Position', [8 180 204 73], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
 % ---- plot area (will be populated dynamically inside container) ----
@@ -919,7 +919,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 260 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 310 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s (cached) %d%%', upper(st), round(prog_pct*100));
                 drawnow;
 
@@ -978,7 +978,7 @@ function cb_load(fig, force_reload)
                 % Update progress bar
                 current_load = current_load + 1;
                 prog_pct = current_load / total_loads;
-                S.pnl_prog_fill.Position = [8 260 round(204 * prog_pct) 8];
+                S.pnl_prog_fill.Position = [8 310 round(204 * prog_pct) 8];
                 S.lbl_progress.Text = sprintf('%s f=%.4f %d%%', upper(st), freq, round(prog_pct*100));
                 drawnow;
 
@@ -1008,7 +1008,7 @@ function cb_load(fig, force_reload)
         S.data_loaded = false;
         % Clear progress bar
         S.lbl_progress.Text = 'Cancelled';
-        S.pnl_prog_fill.Position = [8 260 0 8];
+        S.pnl_prog_fill.Position = [8 310 0 8];
         fig.UserData = S;
         return;
     end
@@ -1052,7 +1052,7 @@ function cb_load(fig, force_reload)
 
     % Clear progress bar and mark complete
     S.lbl_progress.Text = 'Ready';
-    S.pnl_prog_fill.Position = [8 260 204 8];  % Full bar = complete
+    S.pnl_prog_fill.Position = [8 310 204 8];  % Full bar = complete
 
     % Mark data as loaded - button becomes "Play"
     S.data_loaded = true;
