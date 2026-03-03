@@ -2268,3 +2268,70 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
     fig.UserData = S;
     render(fig);
 end
+
+function S = precompute_wavefronts(S, selected_views)
+    % Pre-compute wavefront data for all frames for smooth playback
+    % Computes global ymax for consistent y-axis scaling
+
+    n_bins = 60;
+    S.wavefront_cache = struct();  % Cache pre-binned wavefront data
+    S.global_ymax = struct();      % Global ymax per simulation
+
+    for vi = 1:length(selected_views)
+        view = selected_views{vi};
+        sim_idx = view.sim_idx;
+        use_y = view.use_y;
+        st = S.all_sim_types{sim_idx};
+
+        % Skip if already computed for this sim
+        cache_key = sprintf('%s_%s', st, ternary(use_y, 'Y', 'X'));
+        if isfield(S.wavefront_cache, cache_key)
+            continue;
+        end
+
+        % Get data
+        if ~isfield(S.multi_freq_data, st) || isempty(S.multi_freq_data.(st))
+            continue;
+        end
+        multi_data = S.multi_freq_data.(st);
+
+        % Get params
+        if ~isfield(S.params, st) || isempty(S.params.(st))
+            continue;
+        end
+        p = S.params.(st);
+        if use_y
+            axis_len = p.height;
+        else
+            axis_len = p.width;
+        end
+
+        edges = linspace(0, axis_len, n_bins+1);
+        ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+        % Compute global ymax across all frequencies
+        global_ymax = 0.5;
+
+        for fi = 1:length(multi_data)
+            xyz = multi_data{fi};
+            if isempty(xyz); continue; end
+
+            n_frames = size(xyz, 3);
+            n_eq = min(10, n_frames);
+
+            if use_y
+                pos0 = mean(squeeze(xyz(:,2,1:n_eq)), 2);
+                all_dpos = squeeze(xyz(:,2,:)) - pos0;
+            else
+                pos0 = mean(squeeze(xyz(:,1,1:n_eq)), 2);
+                all_dpos = squeeze(xyz(:,1,:)) - pos0;
+            end
+
+            pct99 = prctile(abs(all_dpos(:)), 99);
+            global_ymax = max(global_ymax, pct99 * 1.2);
+        end
+
+        S.global_ymax.(cache_key) = global_ymax;
+        S.wavefront_cache.(cache_key) = struct('ctrs', ctrs, 'axis_len', axis_len);
+    end
+end
