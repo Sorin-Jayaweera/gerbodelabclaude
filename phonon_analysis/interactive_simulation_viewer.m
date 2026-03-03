@@ -51,44 +51,54 @@ plot_container = uipanel(fig, 'BorderType', 'none', ...
     'Position', [236 8 1356 934], ...
     'BackgroundColor', [0.15 0.15 0.15]);
 
-% ---- simulation + axis checkboxes with graph number buttons ----
-% Each sim has: [Graph#] Label [X] [Y]
+% ---- simulation + axis checkboxes with separate Fig buttons for X and Y ----
+% Layout: Label [FigX][X] [FigY][Y]
 uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 60 18], 'FontColor', 'w', 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'Fig', 'Position', [130 898 25 18], 'FontColor', [0.7 0.7 0.7], 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'X', 'Position', [165 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'Y', 'Position', [190 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'X', 'Position', [115 898 15 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'Y', 'Position', [175 898 15 18], 'FontColor', 'w', 'FontWeight', 'bold');
 
 cb_labels = {'Chev side', 'Stripe side', 'Rand side', 'Chev top', 'Frust side', 'Frust top'};
 cb_x = cell(6,1);  % X axis checkboxes
 cb_y = cell(6,1);  % Y axis checkboxes
-btn_graph_num = cell(6,1);  % Graph number buttons (click to cycle)
+btn_graph_x = cell(6,1);  % Graph number buttons for X
+btn_graph_y = cell(6,1);  % Graph number buttons for Y
 
-% Graph colors for overlay visualization (rainbow)
+% Graph colors for overlay visualization (up to 12 different graphs)
 graph_colors = [
-    0.2 0.6 1.0;   % Blue (graph 1)
-    1.0 0.4 0.2;   % Orange (graph 2)
-    0.3 0.8 0.3;   % Green (graph 3)
-    0.9 0.3 0.9;   % Magenta (graph 4)
-    1.0 0.8 0.2;   % Yellow (graph 5)
-    0.4 0.9 0.9;   % Cyan (graph 6)
+    0.2 0.6 1.0;   % Blue (1)
+    1.0 0.4 0.2;   % Orange (2)
+    0.3 0.8 0.3;   % Green (3)
+    0.9 0.3 0.9;   % Magenta (4)
+    1.0 0.8 0.2;   % Yellow (5)
+    0.4 0.9 0.9;   % Cyan (6)
+    0.8 0.4 0.4;   % Red (7)
+    0.6 0.6 1.0;   % Lavender (8)
+    0.4 0.7 0.5;   % Teal (9)
+    1.0 0.6 0.8;   % Pink (10)
+    0.7 0.5 0.3;   % Brown (11)
+    0.5 0.5 0.5;   % Gray (12)
 ];
 
 for i = 1:6
     y_pos = 898 - i*20;
-    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 80 18], 'FontColor', 'w', 'FontSize', 10);
+    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 60 18], 'FontColor', 'w', 'FontSize', 9);
 
-    % Graph number button - click to cycle through graph numbers
-    btn_graph_num{i} = uibutton(cp, 'Text', num2str(i), ...
-        'Position', [130 y_pos 22 18], ...
-        'BackgroundColor', graph_colors(i,:), 'FontColor', 'w', 'FontSize', 10, ...
-        'FontWeight', 'bold', 'Tooltip', 'Click to change graph assignment');
-
-    % Default: X for side-driven sims (1,2,3,5), Y for top-driven sims (4,6)
-    is_top_driven = ismember(i, [4, 6]);  % topdriven and frust_top
+    % X: Fig button + checkbox
+    btn_graph_x{i} = uibutton(cp, 'Text', '-', ...
+        'Position', [70 y_pos 20 18], ...
+        'BackgroundColor', [0.3 0.3 0.3], 'FontColor', 'w', 'FontSize', 9, ...
+        'FontWeight', 'bold', 'Tooltip', 'Graph # for X (click to cycle)');
+    is_top_driven = ismember(i, [4, 6]);
     cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', ~is_top_driven && (i <= 5), ...
-        'Position', [160 y_pos 25 18], 'FontColor', 'w');
+        'Position', [92 y_pos 25 18], 'FontColor', 'w');
+
+    % Y: Fig button + checkbox
+    btn_graph_y{i} = uibutton(cp, 'Text', '-', ...
+        'Position', [130 y_pos 20 18], ...
+        'BackgroundColor', [0.3 0.3 0.3], 'FontColor', 'w', 'FontSize', 9, ...
+        'FontWeight', 'bold', 'Tooltip', 'Graph # for Y (click to cycle)');
     cb_y{i} = uicheckbox(cp, 'Text', '', 'Value', is_top_driven, ...
-        'Position', [185 y_pos 25 18], 'FontColor', 'w');
+        'Position', [152 y_pos 25 18], 'FontColor', 'w');
 end
 
 % frequency controls - starts after sim checkboxes (898 - 6*20 - 15 = 763)
@@ -202,8 +212,9 @@ S.kymo_cache      = struct();   % Pre-computed kymographs
 S.x0_cache        = struct();   % Pre-computed equilibrium positions
 S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scaling
 S.topdriven_cache = struct();   % Whether sim is top-driven (uses Y axis)
-% Graph assignment for each simulation (1-6, determines overlay grouping)
-S.graph_assignments = [1 2 3 4 5 6];  % Default: each sim on its own graph
+% Separate graph assignments for X and Y (0 = not assigned yet, 1-12 = graph number)
+S.graph_assignments_x = zeros(1, 6);  % Graph assignments for X checkboxes
+S.graph_assignments_y = zeros(1, 6);  % Graph assignments for Y checkboxes
 S.graph_colors    = graph_colors;
 % Sidebar state
 S.sidebar_expanded = true;
@@ -214,7 +225,8 @@ S.fig             = fig;
 S.cp              = cp;         % Control panel
 S.plot_container  = plot_container;  % Container for plots (prevents overlap)
 S.btn_collapse    = btn_collapse;    % Sidebar collapse button
-S.btn_graph_num   = btn_graph_num;   % Graph number buttons
+S.btn_graph_x     = btn_graph_x;     % Graph number buttons for X
+S.btn_graph_y     = btn_graph_y;     % Graph number buttons for Y
 S.cb_x            = cb_x;      % X axis checkboxes for each sim
 S.cb_y            = cb_y;      % Y axis checkboxes for each sim
 S.sl_freq         = sl_freq;
@@ -270,21 +282,37 @@ btn_select_freqs.ButtonPushedFcn = @(~,~) cb_open_freq_selector(fig);
 dd_range_start.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 dd_range_end.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 
-% Checkboxes mark config as changed (needs reload)
+% Checkboxes - update graph assignments when checked/unchecked
 for i = 1:6
-    cb_x{i}.ValueChangedFcn = @(~,~) cb_config_changed(fig);
-    cb_y{i}.ValueChangedFcn = @(~,~) cb_config_changed(fig);
+    cb_x{i}.ValueChangedFcn = @(~,~) cb_checkbox_changed(fig, i, 'x');
+    cb_y{i}.ValueChangedFcn = @(~,~) cb_checkbox_changed(fig, i, 'y');
 end
 
-% Graph number buttons - click to cycle assignment
+% Graph number buttons - click to cycle assignment (separate for X and Y)
 for i = 1:6
-    btn_graph_num{i}.ButtonPushedFcn = @(src,~) cb_cycle_graph_num(fig, i);
+    btn_graph_x{i}.ButtonPushedFcn = @(~,~) cb_cycle_graph_num(fig, i, 'x');
+    btn_graph_y{i}.ButtonPushedFcn = @(~,~) cb_cycle_graph_num(fig, i, 'y');
 end
 
 % Sidebar collapse button
 btn_collapse.ButtonPushedFcn = @(~,~) cb_toggle_sidebar(fig);
 
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
+
+% Initialize graph assignments for default checked items
+graph_num = 0;
+for i = 1:6
+    if S.cb_x{i}.Value
+        graph_num = graph_num + 1;
+        S.graph_assignments_x(i) = graph_num;
+        update_graph_button(S.btn_graph_x{i}, graph_num, S.graph_colors);
+    end
+    if S.cb_y{i}.Value
+        graph_num = graph_num + 1;
+        S.graph_assignments_y(i) = graph_num;
+        update_graph_button(S.btn_graph_y{i}, graph_num, S.graph_colors);
+    end
+end
 
 % Don't auto-load on startup - wait for user to click Load
 S.txt_status.Value = {'Select simulations and click Load'};
@@ -317,25 +345,159 @@ function cb_config_changed(fig)
     fig.UserData = S;
 end
 
-function cb_cycle_graph_num(fig, sim_idx)
-    % Cycle the graph assignment for simulation sim_idx
+function cb_checkbox_changed(fig, sim_idx, axis)
+    % Called when X or Y checkbox changes - auto-assign graph number
     S = fig.UserData;
 
-    % Get current assignment and cycle to next
-    current = S.graph_assignments(sim_idx);
-    next_num = mod(current, 6) + 1;  % Cycle 1->2->3->4->5->6->1
-    S.graph_assignments(sim_idx) = next_num;
+    % Count total checked items to determine max graph number
+    n_checked = count_checked(S);
 
-    % Update button appearance
-    S.btn_graph_num{sim_idx}.Text = num2str(next_num);
-    S.btn_graph_num{sim_idx}.BackgroundColor = S.graph_colors(next_num, :);
+    if strcmp(axis, 'x')
+        is_checked = S.cb_x{sim_idx}.Value;
+        if is_checked && S.graph_assignments_x(sim_idx) == 0
+            % Newly checked - assign next available number
+            S.graph_assignments_x(sim_idx) = get_next_graph_num(S);
+            update_graph_button(S.btn_graph_x{sim_idx}, S.graph_assignments_x(sim_idx), S.graph_colors);
+        elseif ~is_checked
+            % Unchecked - clear assignment
+            S.graph_assignments_x(sim_idx) = 0;
+            S.btn_graph_x{sim_idx}.Text = '-';
+            S.btn_graph_x{sim_idx}.BackgroundColor = [0.3 0.3 0.3];
+        end
+    else
+        is_checked = S.cb_y{sim_idx}.Value;
+        if is_checked && S.graph_assignments_y(sim_idx) == 0
+            % Newly checked - assign next available number
+            S.graph_assignments_y(sim_idx) = get_next_graph_num(S);
+            update_graph_button(S.btn_graph_y{sim_idx}, S.graph_assignments_y(sim_idx), S.graph_colors);
+        elseif ~is_checked
+            % Unchecked - clear assignment
+            S.graph_assignments_y(sim_idx) = 0;
+            S.btn_graph_y{sim_idx}.Text = '-';
+            S.btn_graph_y{sim_idx}.BackgroundColor = [0.3 0.3 0.3];
+        end
+    end
 
-    % Mark config as changed (needs reload for wavefront overlay)
+    % Renumber all assignments to be sequential (1, 2, 3, ...)
+    S = renumber_graph_assignments(S);
+
+    % Mark config as changed
     S.data_loaded = false;
     S.btn_action.Text = 'Load';
     S.btn_action.BackgroundColor = [0.2 0.5 0.3];
 
     fig.UserData = S;
+end
+
+function cb_cycle_graph_num(fig, sim_idx, axis)
+    % Cycle the graph assignment for X or Y
+    S = fig.UserData;
+
+    % Get max allowed number (= total checkmarks)
+    n_checked = count_checked(S);
+    if n_checked == 0
+        return;
+    end
+
+    if strcmp(axis, 'x')
+        if ~S.cb_x{sim_idx}.Value
+            return;  % Can't change if not checked
+        end
+        current = S.graph_assignments_x(sim_idx);
+        next_num = mod(current, n_checked) + 1;  % Cycle 1 to n_checked
+        S.graph_assignments_x(sim_idx) = next_num;
+        update_graph_button(S.btn_graph_x{sim_idx}, next_num, S.graph_colors);
+    else
+        if ~S.cb_y{sim_idx}.Value
+            return;  % Can't change if not checked
+        end
+        current = S.graph_assignments_y(sim_idx);
+        next_num = mod(current, n_checked) + 1;  % Cycle 1 to n_checked
+        S.graph_assignments_y(sim_idx) = next_num;
+        update_graph_button(S.btn_graph_y{sim_idx}, next_num, S.graph_colors);
+    end
+
+    % Mark config as changed
+    S.data_loaded = false;
+    S.btn_action.Text = 'Load';
+    S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+
+    fig.UserData = S;
+end
+
+function n = count_checked(S)
+    % Count total number of checked X and Y boxes
+    n = 0;
+    for i = 1:6
+        if S.cb_x{i}.Value, n = n + 1; end
+        if S.cb_y{i}.Value, n = n + 1; end
+    end
+end
+
+function num = get_next_graph_num(S)
+    % Find the next unused graph number
+    used = [S.graph_assignments_x(S.graph_assignments_x > 0), ...
+            S.graph_assignments_y(S.graph_assignments_y > 0)];
+    if isempty(used)
+        num = 1;
+    else
+        num = max(used) + 1;
+    end
+end
+
+function S = renumber_graph_assignments(S)
+    % Renumber all assignments to be sequential (1, 2, 3, ...)
+    % This ensures max number = total checkmarks
+    all_assignments = [];
+    assignment_sources = {};  % Track where each assignment came from
+
+    for i = 1:6
+        if S.cb_x{i}.Value && S.graph_assignments_x(i) > 0
+            all_assignments(end+1) = S.graph_assignments_x(i);
+            assignment_sources{end+1} = struct('type', 'x', 'idx', i);
+        end
+        if S.cb_y{i}.Value && S.graph_assignments_y(i) > 0
+            all_assignments(end+1) = S.graph_assignments_y(i);
+            assignment_sources{end+1} = struct('type', 'y', 'idx', i);
+        end
+    end
+
+    if isempty(all_assignments)
+        return;
+    end
+
+    % Sort and create mapping from old to new
+    [sorted_vals, sort_idx] = sort(all_assignments);
+    unique_vals = unique(sorted_vals);
+    new_num = 1;
+    mapping = containers.Map('KeyType', 'double', 'ValueType', 'double');
+    for v = unique_vals
+        mapping(v) = new_num;
+        new_num = new_num + 1;
+    end
+
+    % Apply mapping
+    for i = 1:6
+        if S.cb_x{i}.Value && S.graph_assignments_x(i) > 0
+            old_val = S.graph_assignments_x(i);
+            new_val = mapping(old_val);
+            S.graph_assignments_x(i) = new_val;
+            update_graph_button(S.btn_graph_x{i}, new_val, S.graph_colors);
+        end
+        if S.cb_y{i}.Value && S.graph_assignments_y(i) > 0
+            old_val = S.graph_assignments_y(i);
+            new_val = mapping(old_val);
+            S.graph_assignments_y(i) = new_val;
+            update_graph_button(S.btn_graph_y{i}, new_val, S.graph_colors);
+        end
+    end
+end
+
+function update_graph_button(btn, num, colors)
+    % Update button appearance
+    btn.Text = num2str(num);
+    color_idx = mod(num-1, size(colors,1)) + 1;
+    btn.BackgroundColor = colors(color_idx, :);
 end
 
 function cb_toggle_sidebar(fig)
@@ -758,28 +920,21 @@ function cb_load(fig, force_reload)
     end_pct   = str2double(strtrim(strrep(S.dd_range_end.Value,   '%', '')));
 
     % Find which (sim, axis) pairs are selected
-    % Auto-assign sequential graph numbers (1, 2, 3...) for selected views
+    % Use separate X and Y graph assignments
     % selected_views: array of structs with .sim_idx, .use_y, .label, .graph_num
     selected_views = {};
-    view_count = 0;
     for i = 1:6
         st = S.all_sim_types{i};
         st_upper = upper(st);
-        if S.cb_x{i}.Value || S.cb_y{i}.Value
-            view_count = view_count + 1;
-            % Auto-assign sequential graph number if not manually set
-            if S.graph_assignments(i) > view_count
-                S.graph_assignments(i) = view_count;
-                S.btn_graph_num{i}.Text = num2str(view_count);
-                S.btn_graph_num{i}.BackgroundColor = S.graph_colors(view_count, :);
-            end
-        end
-        graph_num = S.graph_assignments(i);
         if S.cb_x{i}.Value
+            graph_num = S.graph_assignments_x(i);
+            if graph_num == 0, graph_num = 1; end  % Fallback
             selected_views{end+1} = struct('sim_idx', i, 'use_y', false, ...
                 'label', [st_upper ' (X)'], 'graph_num', graph_num);
         end
         if S.cb_y{i}.Value
+            graph_num = S.graph_assignments_y(i);
+            if graph_num == 0, graph_num = 1; end  % Fallback
             selected_views{end+1} = struct('sim_idx', i, 'use_y', true, ...
                 'label', [st_upper ' (Y)'], 'graph_num', graph_num);
         end
