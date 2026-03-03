@@ -15,7 +15,7 @@ function interactive_simulation_viewer()
 % Date: 2026
 
 %% ==================== CONFIGURATION ====================
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 
 % All available simulation types
 all_sim_types   = {'chevron', 'stripe', 'random', 'topdriven', 'frust_side', 'frust_top'};
@@ -34,28 +34,61 @@ fig = uifigure('Name', 'Simulation Viewer', 'Position', [50 50 1600 950]);
 fig.Color = [0.15 0.15 0.15];
 
 % ---- control panel (wider to fit checkboxes) ----
+cp_width = 220;
+cp_collapsed_width = 30;
 cp = uipanel(fig, 'Title', 'Controls', ...
-    'Position', [8 8 220 934], ...
+    'Position', [8 8 cp_width 934], ...
     'BackgroundColor', [0.2 0.2 0.2], 'ForegroundColor', 'w');
 
-% ---- simulation + axis checkboxes ----
-% Each sim has X and Y checkboxes - check any combination you want
-uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 100 18], 'FontColor', 'w', 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'X', 'Position', [145 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
-uilabel(cp, 'Text', 'Y', 'Position', [175 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
+% ---- sidebar collapse toggle ----
+btn_collapse = uibutton(fig, 'Text', char(171), ...  % « character
+    'Position', [cp_width + 10, 900, 20, 30], ...
+    'BackgroundColor', [0.3 0.3 0.3], 'FontColor', 'w', 'FontSize', 14, ...
+    'Tooltip', 'Collapse/expand sidebar');
+
+% ---- plot container panel (prevents overlap with control panel) ----
+plot_container = uipanel(fig, 'BorderType', 'none', ...
+    'Position', [236 8 1356 934], ...
+    'BackgroundColor', [0.15 0.15 0.15]);
+
+% ---- simulation + axis checkboxes with graph number buttons ----
+% Each sim has: [Graph#] Label [X] [Y]
+uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 60 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'Fig', 'Position', [75 898 25 18], 'FontColor', [0.7 0.7 0.7], 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'X', 'Position', [165 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
+uilabel(cp, 'Text', 'Y', 'Position', [190 898 20 18], 'FontColor', 'w', 'FontWeight', 'bold');
 
 cb_labels = {'Chevron (side)', 'Stripe (side)', 'Random (side)', 'Chevron (top)', 'Frust (side)', 'Frust (top)'};
 cb_x = cell(6,1);  % X axis checkboxes
 cb_y = cell(6,1);  % Y axis checkboxes
+btn_graph_num = cell(6,1);  % Graph number buttons (click to cycle)
+
+% Graph colors for overlay visualization (rainbow)
+graph_colors = [
+    0.2 0.6 1.0;   % Blue (graph 1)
+    1.0 0.4 0.2;   % Orange (graph 2)
+    0.3 0.8 0.3;   % Green (graph 3)
+    0.9 0.3 0.9;   % Magenta (graph 4)
+    1.0 0.8 0.2;   % Yellow (graph 5)
+    0.4 0.9 0.9;   % Cyan (graph 6)
+];
+
 for i = 1:6
-    y_pos = 898 - i*20;
-    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 130 18], 'FontColor', 'w');
+    y_pos = 898 - i*22;
+    uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 65 18], 'FontColor', 'w', 'FontSize', 10);
+
+    % Graph number button - click to cycle through graph numbers
+    btn_graph_num{i} = uibutton(cp, 'Text', num2str(i), ...
+        'Position', [75 y_pos 22 18], ...
+        'BackgroundColor', graph_colors(i,:), 'FontColor', 'w', 'FontSize', 10, ...
+        'FontWeight', 'bold', 'Tooltip', 'Click to change graph assignment');
+
     % Default: X for side-driven sims (1,2,3,5), Y for top-driven sims (4,6)
     is_top_driven = ismember(i, [4, 6]);  % topdriven and frust_top
     cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', ~is_top_driven && (i <= 5), ...
-        'Position', [140 y_pos 25 18], 'FontColor', 'w');
+        'Position', [160 y_pos 25 18], 'FontColor', 'w');
     cb_y{i} = uicheckbox(cp, 'Text', '', 'Value', is_top_driven, ...
-        'Position', [170 y_pos 25 18], 'FontColor', 'w');
+        'Position', [185 y_pos 25 18], 'FontColor', 'w');
 end
 
 % frequency controls
@@ -143,9 +176,10 @@ uilabel(cp, 'Text', 'Status:', 'Position', [8 205 200 18], 'FontColor', 'w');
 txt_status = uitextarea(cp, 'Position', [8 65 204 138], 'Editable', 'off', ...
     'BackgroundColor', [0.1 0.1 0.1], 'FontColor', [0.7 0.7 0.7], 'FontSize', 9);
 
-% ---- plot area (will be populated dynamically) ----
-plot_area_x = 236;
-plot_area_y = 8;
+% ---- plot area (will be populated dynamically inside container) ----
+% Plot area is relative to plot_container, not fig
+plot_area_x = 0;
+plot_area_y = 0;
 plot_area_w = 1356;
 plot_area_h = 934;
 
@@ -168,8 +202,19 @@ S.kymo_cache      = struct();   % Pre-computed kymographs
 S.x0_cache        = struct();   % Pre-computed equilibrium positions
 S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scaling
 S.topdriven_cache = struct();   % Whether sim is top-driven (uses Y axis)
+% Graph assignment for each simulation (1-6, determines overlay grouping)
+S.graph_assignments = [1 2 3 4 5 6];  % Default: each sim on its own graph
+S.graph_colors    = graph_colors;
+% Sidebar state
+S.sidebar_expanded = true;
+S.cp_width        = cp_width;
+S.cp_collapsed_width = cp_collapsed_width;
 % UI handles
 S.fig             = fig;
+S.cp              = cp;         % Control panel
+S.plot_container  = plot_container;  % Container for plots (prevents overlap)
+S.btn_collapse    = btn_collapse;    % Sidebar collapse button
+S.btn_graph_num   = btn_graph_num;   % Graph number buttons
 S.cb_x            = cb_x;      % X axis checkboxes for each sim
 S.cb_y            = cb_y;      % Y axis checkboxes for each sim
 S.sl_freq         = sl_freq;
@@ -231,6 +276,14 @@ for i = 1:6
     cb_y{i}.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 end
 
+% Graph number buttons - click to cycle assignment
+for i = 1:6
+    btn_graph_num{i}.ButtonPushedFcn = @(src,~) cb_cycle_graph_num(fig, i);
+end
+
+% Sidebar collapse button
+btn_collapse.ButtonPushedFcn = @(~,~) cb_toggle_sidebar(fig);
+
 fig.CloseRequestFcn = @(~,~) cb_close(fig);
 
 % Don't auto-load on startup - wait for user to click Load
@@ -262,6 +315,85 @@ function cb_config_changed(fig)
     S.btn_cancel.Enable = 'off';
 
     fig.UserData = S;
+end
+
+function cb_cycle_graph_num(fig, sim_idx)
+    % Cycle the graph assignment for simulation sim_idx
+    S = fig.UserData;
+
+    % Get current assignment and cycle to next
+    current = S.graph_assignments(sim_idx);
+    next_num = mod(current, 6) + 1;  % Cycle 1->2->3->4->5->6->1
+    S.graph_assignments(sim_idx) = next_num;
+
+    % Update button appearance
+    S.btn_graph_num{sim_idx}.Text = num2str(next_num);
+    S.btn_graph_num{sim_idx}.BackgroundColor = S.graph_colors(next_num, :);
+
+    % Mark config as changed (needs reload for wavefront overlay)
+    S.data_loaded = false;
+    S.btn_action.Text = 'Load';
+    S.btn_action.BackgroundColor = [0.2 0.5 0.3];
+
+    fig.UserData = S;
+end
+
+function cb_toggle_sidebar(fig)
+    % Toggle sidebar expanded/collapsed
+    S = fig.UserData;
+
+    if S.sidebar_expanded
+        % Collapse sidebar
+        S.sidebar_expanded = false;
+        S.cp.Position(3) = S.cp_collapsed_width;
+        S.cp.Title = '';
+        S.btn_collapse.Text = char(187);  % » character
+        S.btn_collapse.Position(1) = S.cp_collapsed_width + 10;
+
+        % Expand plot area
+        new_x = S.cp_collapsed_width + 16;
+        new_w = S.fig.Position(3) - new_x - 8;
+        S.plot_container.Position = [new_x 8 new_w 934];
+        S.plot_area = [0, 0, new_w, 934];
+
+        % Hide most controls (keep them but invisible)
+        set_control_visibility(S.cp, 'off');
+    else
+        % Expand sidebar
+        S.sidebar_expanded = true;
+        S.cp.Position(3) = S.cp_width;
+        S.cp.Title = 'Controls';
+        S.btn_collapse.Text = char(171);  % « character
+        S.btn_collapse.Position(1) = S.cp_width + 10;
+
+        % Restore plot area
+        new_x = S.cp_width + 16;
+        new_w = S.fig.Position(3) - new_x - 8;
+        S.plot_container.Position = [new_x 8 new_w 934];
+        S.plot_area = [0, 0, new_w, 934];
+
+        % Show controls
+        set_control_visibility(S.cp, 'on');
+    end
+
+    fig.UserData = S;
+
+    % Re-layout panels if data is loaded
+    if S.data_loaded
+        cb_load(fig, false);  % Reload layout without reloading data
+    end
+end
+
+function set_control_visibility(panel, vis)
+    % Set visibility for all children of the panel
+    children = panel.Children;
+    for i = 1:length(children)
+        try
+            children(i).Visible = vis;
+        catch
+            % Some components don't have Visible property
+        end
+    end
 end
 
 function cb_toggle_multi_freq(fig)
@@ -626,16 +758,19 @@ function cb_load(fig, force_reload)
     end_pct   = str2double(strtrim(strrep(S.dd_range_end.Value,   '%', '')));
 
     % Find which (sim, axis) pairs are selected
-    % selected_views: array of structs with .sim_idx, .use_y, .label
+    % selected_views: array of structs with .sim_idx, .use_y, .label, .graph_num
     selected_views = {};
     for i = 1:6
         st = S.all_sim_types{i};
         st_upper = upper(st);
+        graph_num = S.graph_assignments(i);
         if S.cb_x{i}.Value
-            selected_views{end+1} = struct('sim_idx', i, 'use_y', false, 'label', [st_upper ' (X)']);
+            selected_views{end+1} = struct('sim_idx', i, 'use_y', false, ...
+                'label', [st_upper ' (X)'], 'graph_num', graph_num);
         end
         if S.cb_y{i}.Value
-            selected_views{end+1} = struct('sim_idx', i, 'use_y', true, 'label', [st_upper ' (Y)']);
+            selected_views{end+1} = struct('sim_idx', i, 'use_y', true, ...
+                'label', [st_upper ' (Y)'], 'graph_num', graph_num);
         end
     end
 
@@ -651,11 +786,43 @@ function cb_load(fig, force_reload)
     end
     S.panels = {};
     S.axs = {};
-    S.view_configs = {};  % Store (sim_type, use_y) for each panel
+    S.view_configs = {};  % Store view config for each panel
+    S.selected_views = selected_views;  % Store for overlay rendering
 
-    % Create new panels for selected views
-    n_sel = length(selected_views);
-    [rows, cols] = get_grid_size(n_sel);
+    % For wavefront mode, group views by graph_num for overlay
+    % For other modes, each view gets its own panel
+    if strcmp(S.view_mode, 'wavefront')
+        % Group views by graph_num
+        graph_nums_used = unique(cellfun(@(v) v.graph_num, selected_views));
+        n_panels = length(graph_nums_used);
+        panel_groups = cell(n_panels, 1);  % Each cell contains view indices for that panel
+        panel_labels = cell(n_panels, 1);
+
+        for gi = 1:n_panels
+            gn = graph_nums_used(gi);
+            view_indices = find(cellfun(@(v) v.graph_num == gn, selected_views));
+            panel_groups{gi} = view_indices;
+
+            % Create label from view names
+            labels = cellfun(@(idx) selected_views{idx}.label, num2cell(view_indices), 'UniformOutput', false);
+            panel_labels{gi} = strjoin(labels, ' + ');
+        end
+        S.panel_groups = panel_groups;
+        S.panel_graph_nums = graph_nums_used;
+    else
+        % Each view gets its own panel
+        n_panels = length(selected_views);
+        panel_groups = cell(n_panels, 1);
+        panel_labels = cell(n_panels, 1);
+        for vi = 1:n_panels
+            panel_groups{vi} = vi;
+            panel_labels{vi} = selected_views{vi}.label;
+        end
+        S.panel_groups = panel_groups;
+        S.panel_graph_nums = [];
+    end
+
+    [rows, cols] = get_grid_size(n_panels);
     pa = S.plot_area;  % [x, y, w, h]
     pw = floor((pa(3) - (cols-1)*8) / cols);
     ph = floor((pa(4) - (rows-1)*8) / rows);
@@ -846,14 +1013,16 @@ function cb_load(fig, force_reload)
         return;
     end
 
-    % Second pass: create panels for each (sim, axis) view
-    for idx = 1:n_sel
-        v = selected_views{idx};
-        i = v.sim_idx;
-        st = S.all_sim_types{i};
+    % Second pass: create panels (one per group in wavefront mode, one per view otherwise)
+    n_panels = length(panel_groups);
+    for idx = 1:n_panels
+        view_indices = panel_groups{idx};
+        panel_label = panel_labels{idx};
 
-        % Store view config
-        S.view_configs{end+1} = struct('sim_type', st, 'use_y', v.use_y);
+        % Store view config (for the first view in the group, plus group info)
+        first_view = selected_views{view_indices(1)};
+        S.view_configs{end+1} = struct('sim_type', S.all_sim_types{first_view.sim_idx}, ...
+            'use_y', first_view.use_y, 'view_indices', view_indices);
 
         % Calculate grid position
         row = ceil(idx / cols);
@@ -861,8 +1030,8 @@ function cb_load(fig, force_reload)
         px = pa(1) + (col-1) * (pw + 8);
         py = pa(2) + pa(4) - row * ph - (row-1)*8;
 
-        % Create panel with axis label in title
-        pan = uipanel(S.fig, 'Title', v.label, ...
+        % Create panel with label (inside plot_container to prevent overlap)
+        pan = uipanel(S.plot_container, 'Title', panel_label, ...
             'Position', [px py pw ph], ...
             'BackgroundColor', [0.1 0.1 0.1], 'ForegroundColor', 'w', 'FontWeight', 'bold');
         ax = uiaxes(pan, 'Position', [8 8 pw-18 ph-38], ...
@@ -1051,45 +1220,58 @@ function render(fig)
         ax = S.axs{idx};
         if idx > length(S.view_configs); continue; end
 
-        % Get view configuration (sim type and axis)
+        % Get view configuration
         vc = S.view_configs{idx};
         st = vc.sim_type;
         use_y = vc.use_y;
 
-        if ~isfield(S.data, st) || isempty(S.data.(st))
-            cla(ax);
-            text(ax, 0.5, 0.5, 'No data', 'Color', 'w', ...
-                'HorizontalAlignment', 'center', 'FontSize', 14, 'Units', 'normalized');
-            continue;
+        % Check if this is an overlay panel (multiple views)
+        view_indices = [];
+        if isfield(vc, 'view_indices')
+            view_indices = vc.view_indices;
         end
+        is_overlay = strcmp(S.view_mode, 'wavefront') && length(view_indices) > 1;
 
-        xyz = S.data.(st);
-        n_fr = size(xyz,3);
-        fr = min(S.frame, n_fr);
-        p = S.params.(st);
-        W = p.width; H = p.height;
-
-        if use_y
-            axis_len = H;
+        if is_overlay
+            % Overlay mode: draw multiple simulations on same axes
+            draw_wavefront_overlay(ax, S, view_indices);
         else
-            axis_len = W;
-        end
+            % Single view mode
+            if ~isfield(S.data, st) || isempty(S.data.(st))
+                cla(ax);
+                text(ax, 0.5, 0.5, 'No data', 'Color', 'w', ...
+                    'HorizontalAlignment', 'center', 'FontSize', 14, 'Units', 'normalized');
+                continue;
+            end
 
-        switch S.view_mode
-            case 'particles'
-                draw_particles(ax, xyz, fr, W, H);
-            case 'wavefront'
-                % Pass multi-frequency data for overlay
-                if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
-                    multi_data = S.multi_freq_data.(st);
-                else
-                    multi_data = {xyz};
-                end
-                draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, fr, axis_len, use_y);
-            case 'kymograph'
-                draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
-            case 'delaunay'
-                draw_delaunay(ax, xyz, fr, W, H);
+            xyz = S.data.(st);
+            n_fr = size(xyz,3);
+            fr = min(S.frame, n_fr);
+            p = S.params.(st);
+            W = p.width; H = p.height;
+
+            if use_y
+                axis_len = H;
+            else
+                axis_len = W;
+            end
+
+            switch S.view_mode
+                case 'particles'
+                    draw_particles(ax, xyz, fr, W, H);
+                case 'wavefront'
+                    % Single sim: different colors per frequency, solid lines
+                    if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                        multi_data = S.multi_freq_data.(st);
+                    else
+                        multi_data = {xyz};
+                    end
+                    draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, fr, axis_len, use_y);
+                case 'kymograph'
+                    draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+                case 'delaunay'
+                    draw_delaunay(ax, xyz, fr, W, H);
+            end
         end
     end
 end
@@ -1230,19 +1412,137 @@ function draw_wavefront_multifreq(ax, multi_data, freqs, fr, axis_len, use_y)
     end
 
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
-    xlim(ax,[0 axis_len]);
-    ylim(ax, [-global_ymax, global_ymax]);
 
+    % For Y-driven (top-driven) sims, flip X-axis so drive appears at left
     if use_y
-        xlabel(ax, 'Y position (px)');
+        xlim(ax,[axis_len 0]);  % Reversed: high Y (drive) on left
+        xlabel(ax, 'Y position (px) [flipped: drive at left]');
     else
+        xlim(ax,[0 axis_len]);
         xlabel(ax, 'X position (px)');
     end
+    ylim(ax, [-global_ymax, global_ymax]);
     ylabel(ax,'Displacement (px)');
 
     % Add legend if multiple frequencies
     if length(legend_entries) > 1
         legend(ax, legend_entries, 'Location', 'best', 'TextColor', 'w', 'Color', [0.2 0.2 0.2]);
+    end
+
+    set(ax,'Color','k');
+    hold(ax,'off');
+end
+
+function draw_wavefront_overlay(ax, S, view_indices)
+    % Draw multiple simulations overlaid on same axes
+    % Each simulation gets a unique color, frequencies get different line styles
+    cla(ax); hold(ax,'on');
+
+    % Line styles for different frequencies
+    line_styles = {'-', '--', ':', '-.'};
+
+    % Colors for different simulations (from graph_colors)
+    sim_colors = S.graph_colors;
+
+    n_bins = 60;
+    global_ymax = 0.5;
+    legend_entries = {};
+    all_use_y = false;  % Track if any view uses Y axis
+
+    for vi = 1:length(view_indices)
+        v_idx = view_indices(vi);
+        view = S.selected_views{v_idx};
+        sim_idx = view.sim_idx;
+        use_y = view.use_y;
+        st = S.all_sim_types{sim_idx};
+
+        if use_y
+            all_use_y = true;
+        end
+
+        % Get data for this simulation
+        if ~isfield(S.multi_freq_data, st) || isempty(S.multi_freq_data.(st))
+            continue;
+        end
+        multi_data = S.multi_freq_data.(st);
+
+        % Get params
+        if ~isfield(S.params, st) || isempty(S.params.(st))
+            continue;
+        end
+        p = S.params.(st);
+        if use_y
+            axis_len = p.height;
+        else
+            axis_len = p.width;
+        end
+        edges = linspace(0, axis_len, n_bins+1);
+        ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+        % Get color for this simulation
+        color = sim_colors(mod(sim_idx-1, size(sim_colors,1)) + 1, :);
+
+        % Plot each frequency with different line style
+        for fi = 1:length(multi_data)
+            xyz = multi_data{fi};
+            if isempty(xyz); continue; end
+
+            n_frames = size(xyz, 3);
+            n_eq = min(10, n_frames);
+            frame = min(S.frame, n_frames);
+
+            if use_y
+                pos = xyz(:,2,frame);
+                pos0 = mean(xyz(:,2,1:n_eq), 3);
+                all_dpos = squeeze(xyz(:,2,:)) - pos0;
+            else
+                pos = xyz(:,1,frame);
+                pos0 = mean(xyz(:,1,1:n_eq), 3);
+                all_dpos = squeeze(xyz(:,1,:)) - pos0;
+            end
+            dpos = pos - pos0;
+
+            % Update global max
+            pct99 = prctile(abs(all_dpos(:)), 99);
+            global_ymax = max(global_ymax, pct99 * 1.2);
+
+            % Bin and average
+            bin_idx = discretize(pos0, edges);
+            avg_dpos = zeros(n_bins,1);
+            for b = 1:n_bins
+                mask = (bin_idx == b);
+                if any(mask)
+                    avg_dpos(b) = mean(dpos(mask));
+                end
+            end
+
+            % Plot with sim color and freq line style
+            ls_idx = mod(fi-1, length(line_styles)) + 1;
+            plot(ax, ctrs, avg_dpos, line_styles{ls_idx}, 'LineWidth', 2, 'Color', color);
+
+            % Legend entry
+            freq = S.manual_freqs(fi);
+            legend_entries{end+1} = sprintf('%s f=%.4f', upper(st), freq);
+        end
+    end
+
+    yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
+
+    % Set axis limits based on whether any view uses Y
+    if all_use_y
+        xlim(ax, [axis_len 0]);  % Flip for Y-driven
+        xlabel(ax, 'Y position (px) [flipped]');
+    else
+        xlim(ax, [0 axis_len]);
+        xlabel(ax, 'X position (px)');
+    end
+    ylim(ax, [-global_ymax, global_ymax]);
+    ylabel(ax, 'Displacement (px)');
+
+    % Add legend
+    if ~isempty(legend_entries)
+        legend(ax, legend_entries, 'Location', 'best', 'TextColor', 'w', ...
+            'Color', [0.2 0.2 0.2], 'FontSize', 8);
     end
 
     set(ax,'Color','k');
@@ -1375,7 +1675,14 @@ function draw_kymograph_dynamic(ax, xyz, axis_len, use_y)
     cmax = max(0.5, pct99 * 1.2);
     clim(ax, [-cmax, cmax]);
     xlabel(ax,'Frame'); ylabel(ax, ylabel_str);
-    set(ax,'YDir','normal');
+
+    % For Y-driven sims, flip so drive (high Y) appears at bottom of kymograph
+    % This matches the wavefront flip where drive appears at left
+    if use_y
+        set(ax,'YDir','reverse');
+    else
+        set(ax,'YDir','normal');
+    end
 end
 
 function draw_kymograph_fast(ax, kymo, axis_len, is_topdriven)

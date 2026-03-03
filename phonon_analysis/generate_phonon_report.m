@@ -9,7 +9,7 @@ clear; close all; clc;
 
 %% ==================== CONFIGURATION ====================
 % Paths
-repo_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+repo_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 sim_path = fullfile(repo_path, 'PhononSims');
 results_path = fullfile(repo_path, 'phonon_analysis', 'dispersion_results');
 phonon_results_path = fullfile(repo_path, 'phonon_analysis', 'phonon_results');

@@ -14,7 +14,7 @@ addpath(genpath('Z:\Colloid Cru\Simulations'));
 
 %% ==================== BATCH FOLDER SETUP ====================
 batch_name = 'topdrivensims';  % Top-driven zigzag
-batch_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+batch_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 batch_folder = fullfile(batch_base, batch_name);
 simulations_folder = fullfile(batch_folder, 'simulations');
 analysis_folder = fullfile(batch_folder, 'analysis');

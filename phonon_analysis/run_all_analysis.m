@@ -24,7 +24,7 @@ addpath(genpath('Z:\Colloid Cru\Simulations'));
 addpath(genpath('Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\phonon_analysis'));
 
 %% ==================== CONFIGURATION ====================
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 output_base = fullfile(base_path, 'comprehensive_analysis');
 
 if ~exist(output_base, 'dir')

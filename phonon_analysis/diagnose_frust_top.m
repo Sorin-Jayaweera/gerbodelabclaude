@@ -8,7 +8,7 @@
 clear; clc;
 
 %% Configuration
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 sim_folder = fullfile(base_path, 'frusttopsims', 'simulations');
 
 % Pick a frequency to check (e.g., 0.001)

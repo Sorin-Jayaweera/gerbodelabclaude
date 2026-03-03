@@ -22,7 +22,7 @@ clear; clc;
 START_FROM_STEP = 1;
 
 % Base paths
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 progress_file = fullfile(base_path, 'progress.txt');
 
 % Add all required paths
@@ -215,7 +215,7 @@ function task_analyze_dispersion(batch_name, domain_type)
     % Analyze dispersion relation for a given batch
     fprintf('  Analyzing dispersion for %s...\n', domain_type);
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     batch_folder = fullfile(base_path, batch_name);
 
     % Call the analysis script with modified batch folder
@@ -226,7 +226,7 @@ function task_analyze_freq_response(batch_name, domain_type)
     % Analyze frequency response for a given batch
     fprintf('  Analyzing frequency response for %s...\n', domain_type);
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     batch_folder = fullfile(base_path, batch_name);
 
     % Call the analysis script with modified batch folder
@@ -237,7 +237,7 @@ function task_analyze_controls()
     % Analyze no-drive control simulations
     fprintf('  Analyzing control simulations...\n');
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     control_folder = fullfile(base_path, 'controlsims', 'simulations');
     output_folder = fullfile(base_path, 'controlsims', 'analysis');
 
@@ -262,7 +262,7 @@ function task_compare_domains()
     % Compare zigzag, stripe, and random domain results
     fprintf('  Comparing domain types...\n');
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     output_folder = fullfile(base_path, 'comparison_results');
 
     if ~exist(output_folder, 'dir')
@@ -276,7 +276,7 @@ function task_compare_drive_directions()
     % Compare X-driven vs Y-driven zigzag
     fprintf('  Comparing drive directions...\n');
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     output_folder = fullfile(base_path, 'comparison_results');
 
     if ~exist(output_folder, 'dir')
@@ -290,7 +290,7 @@ function task_generate_summary()
     % Generate summary figures combining all results
     fprintf('  Generating summary figures...\n');
 
-    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
+    base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
     output_folder = fullfile(base_path, 'summary_figures');
 
     if ~exist(output_folder, 'dir')
