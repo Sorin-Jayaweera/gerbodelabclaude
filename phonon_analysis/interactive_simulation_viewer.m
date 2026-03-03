@@ -758,11 +758,22 @@ function cb_load(fig, force_reload)
     end_pct   = str2double(strtrim(strrep(S.dd_range_end.Value,   '%', '')));
 
     % Find which (sim, axis) pairs are selected
+    % Auto-assign sequential graph numbers (1, 2, 3...) for selected views
     % selected_views: array of structs with .sim_idx, .use_y, .label, .graph_num
     selected_views = {};
+    view_count = 0;
     for i = 1:6
         st = S.all_sim_types{i};
         st_upper = upper(st);
+        if S.cb_x{i}.Value || S.cb_y{i}.Value
+            view_count = view_count + 1;
+            % Auto-assign sequential graph number if not manually set
+            if S.graph_assignments(i) > view_count
+                S.graph_assignments(i) = view_count;
+                S.btn_graph_num{i}.Text = num2str(view_count);
+                S.btn_graph_num{i}.BackgroundColor = S.graph_colors(view_count, :);
+            end
+        end
         graph_num = S.graph_assignments(i);
         if S.cb_x{i}.Value
             selected_views{end+1} = struct('sim_idx', i, 'use_y', false, ...
@@ -998,6 +1009,14 @@ function cb_load(fig, force_reload)
             break;
         end
     end  % end sim loop
+
+    % Pre-compute wavefront data for smooth playback
+    if ~S.cancel_loading
+        S.lbl_progress.Text = 'Pre-computing wavefronts...';
+        drawnow;
+        S = precompute_wavefronts(S, selected_views);
+        fig.UserData = S;  % Update fig.UserData with precomputed data
+    end
 
     % Update status if cancelled
     if S.cancel_loading
@@ -1436,6 +1455,7 @@ end
 function draw_wavefront_overlay(ax, S, view_indices)
     % Draw multiple simulations overlaid on same axes
     % Each simulation gets a unique color, frequencies get different line styles
+    % Y-driven sims are flipped so drive appears at same position as X-driven (left)
     cla(ax); hold(ax,'on');
 
     % Line styles for different frequencies
@@ -1447,7 +1467,9 @@ function draw_wavefront_overlay(ax, S, view_indices)
     n_bins = 60;
     global_ymax = 0.5;
     legend_entries = {};
-    all_use_y = false;  % Track if any view uses Y axis
+    max_axis_len = 0;
+    has_y_driven = false;
+    has_x_driven = false;
 
     for vi = 1:length(view_indices)
         v_idx = view_indices(vi);
@@ -1457,7 +1479,9 @@ function draw_wavefront_overlay(ax, S, view_indices)
         st = S.all_sim_types{sim_idx};
 
         if use_y
-            all_use_y = true;
+            has_y_driven = true;
+        else
+            has_x_driven = true;
         end
 
         % Get data for this simulation
@@ -1476,8 +1500,17 @@ function draw_wavefront_overlay(ax, S, view_indices)
         else
             axis_len = p.width;
         end
+        max_axis_len = max(max_axis_len, axis_len);
+
         edges = linspace(0, axis_len, n_bins+1);
         ctrs = (edges(1:end-1)+edges(2:end))/2;
+
+        % For Y-driven, flip centers so drive (at high Y) plots at left (position 0)
+        if use_y
+            plot_ctrs = axis_len - ctrs;  % Flip: high Y -> low plot position
+        else
+            plot_ctrs = ctrs;  % X-driven: low X (drive) -> low plot position
+        end
 
         % Get color for this simulation
         color = sim_colors(mod(sim_idx-1, size(sim_colors,1)) + 1, :);
@@ -1516,9 +1549,9 @@ function draw_wavefront_overlay(ax, S, view_indices)
                 end
             end
 
-            % Plot with sim color and freq line style
+            % Plot with flipped centers for Y-driven
             ls_idx = mod(fi-1, length(line_styles)) + 1;
-            plot(ax, ctrs, avg_dpos, line_styles{ls_idx}, 'LineWidth', 2, 'Color', color);
+            plot(ax, plot_ctrs, avg_dpos, line_styles{ls_idx}, 'LineWidth', 2, 'Color', color);
 
             % Legend entry
             freq = S.manual_freqs(fi);
@@ -1528,12 +1561,13 @@ function draw_wavefront_overlay(ax, S, view_indices)
 
     yline(ax, 0, '--', 'Color', [0.5 0.5 0.5]);
 
-    % Set axis limits based on whether any view uses Y
-    if all_use_y
-        xlim(ax, [axis_len 0]);  % Flip for Y-driven
-        xlabel(ax, 'Y position (px) [flipped]');
+    % Set axis labels based on what's being shown
+    xlim(ax, [0 max_axis_len]);
+    if has_x_driven && has_y_driven
+        xlabel(ax, 'Distance from drive (px)');
+    elseif has_y_driven
+        xlabel(ax, 'Distance from top (px)');
     else
-        xlim(ax, [0 axis_len]);
         xlabel(ax, 'X position (px)');
     end
     ylim(ax, [-global_ymax, global_ymax]);
