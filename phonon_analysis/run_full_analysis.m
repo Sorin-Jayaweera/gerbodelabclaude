@@ -160,10 +160,24 @@ end
 % Results array for logging (cell array for parfor compatibility)
 log_results = cell(n_jobs, 1);
 
+fprintf('Starting analysis at %s...\n', datestr(now, 'HH:MM:SS'));
+start_time = tic;
+
 if use_parallel
+    % Create DataQueue for progress updates
+    progress_queue = parallel.pool.DataQueue;
+    completed_count = 0;
+
+    % Progress callback function
+    afterEach(progress_queue, @(data) update_progress(data, n_jobs));
+
     parfor job_idx = 1:n_jobs
         job = jobs{job_idx};
-        log_results{job_idx} = run_single_analysis(job, base_path, output_base, opts, params);
+        result = run_single_analysis(job, base_path, output_base, opts, params);
+        log_results{job_idx} = result;
+        % Send progress update
+        send(progress_queue, struct('job_idx', job_idx, 'exp', job.exp.name, ...
+             'freq', job.freq, 'result', result));
     end
 else
     for job_idx = 1:n_jobs
@@ -172,6 +186,9 @@ else
         log_results{job_idx} = run_single_analysis(job, base_path, output_base, opts, params);
     end
 end
+
+elapsed = toc(start_time);
+fprintf('\n*** PARALLEL ANALYSIS FINISHED at %s (%.1f minutes) ***\n', datestr(now, 'HH:MM:SS'), elapsed/60);
 
 %% ==================== WRITE LOG FILE ====================
 log_file = fullfile(output_base, 'analysis_log.txt');
@@ -246,6 +263,28 @@ fprintf('Log file: %s\n', log_file);
 fprintf('Total jobs: %d (Success: %d, Skipped: %d, Errors: %d)\n', ...
     n_jobs, n_success, n_skipped, n_error);
 fprintf('\nRun analysis_viewer.m to explore results interactively.\n');
+
+%% ==================== PROGRESS UPDATE FUNCTION ====================
+function update_progress(data, n_jobs)
+    % Called each time a worker completes a job
+    persistent count;
+    if isempty(count)
+        count = 0;
+    end
+    count = count + 1;
+
+    % Status indicator
+    if contains(data.result, 'SUCCESS')
+        status = 'OK';
+    elseif contains(data.result, 'SKIPPED')
+        status = 'SKIP';
+    else
+        status = 'ERR';
+    end
+
+    fprintf('[%3d/%3d] %s | %s f=%.4f | %s\n', ...
+        count, n_jobs, datestr(now, 'HH:MM:SS'), data.exp, data.freq, status);
+end
 
 %% ==================== SINGLE ANALYSIS FUNCTION ====================
 function result = run_single_analysis(job, base_path, output_base, opts, params)
