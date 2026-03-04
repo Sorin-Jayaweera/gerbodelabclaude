@@ -1506,18 +1506,19 @@ function draw_delaunay(ax, xyz, fr, W, H)
     area_norm = (areas - area_min) / (area_max - area_min + eps);
     area_norm = max(0, min(1, area_norm));  % Clamp to [0,1]
 
-    % Create colormap (blue = small/compressed, red = large/expanded)
-    cmap = jet(256);
+    % Create colormap (black = small/compressed, red = large/open)
+    % Gradient from black [0,0,0] to red [1,0,0]
+    cmap = [linspace(0,1,256)', zeros(256,1), zeros(256,1)];
     color_idx = round(area_norm * 255) + 1;
     tri_colors = cmap(color_idx, :);
 
     % Draw filled triangles
     patch(ax, 'Faces', tri, 'Vertices', [x, y], ...
         'FaceVertexCData', tri_colors, 'FaceColor', 'flat', ...
-        'EdgeColor', [0.3 0.3 0.3], 'EdgeAlpha', 0.3, 'LineWidth', 0.5);
+        'EdgeColor', [0.2 0.2 0.2], 'EdgeAlpha', 0.3, 'LineWidth', 0.5);
 
     % Add colorbar
-    colormap(ax, jet);
+    colormap(ax, cmap);
     cb = colorbar(ax, 'Color', 'w');
     cb.Label.String = 'Triangle Area (px²)';
     cb.Label.Color = 'w';

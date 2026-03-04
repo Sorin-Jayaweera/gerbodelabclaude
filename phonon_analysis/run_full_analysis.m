@@ -428,8 +428,8 @@ function run_fourier_analysis(ctx)
     uy = uy - mean(uy, 1);
     uz = uz - mean(uz, 1);
 
-    % Apply window
-    window = hann_window(N_frames)';
+    % Apply window (window should be row vector to broadcast with [N_particles x N_frames])
+    window = hann_window(N_frames);  % Row vector [1 x N_frames]
     Ux = fft(ux .* window, [], 2);
     Uy = fft(uy .* window, [], 2);
     Uz = fft(uz .* window, [], 2);
@@ -604,7 +604,7 @@ function run_resonance_analysis(ctx)
     uy = uy - mean(uy, 1);
     uz = uz - mean(uz, 1);
 
-    window = hann_window(N_frames)';
+    window = hann_window(N_frames);  % Row vector for broadcasting
     Ux = fft(ux .* window, [], 2);
     Uy = fft(uy .* window, [], 2);
     Uz = fft(uz .* window, [], 2);
@@ -752,7 +752,7 @@ function run_momentum_analysis(ctx)
     uy = uy - mean(uy, 1);
 
     % Temporal FFT
-    window = hann_window(N_frames)';
+    window = hann_window(N_frames);  % Row vector for broadcasting
     Ux = fft(ux .* window, [], 2);
     Uy = fft(uy .* window, [], 2);
 
