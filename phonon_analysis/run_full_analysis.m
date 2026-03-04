@@ -19,6 +19,9 @@
 % 9. Mean squared displacement
 % 10. Correlation functions
 %
+% PARALLELIZATION: Uses parfor to distribute frequency analyses across cores.
+% Requires Parallel Computing Toolbox.
+%
 % Author: Gerbode Lab
 % Date: 2026
 
@@ -77,6 +80,10 @@ params.looseness = 1.06;
 params.lattice_constant = params.particle_diameter * params.looseness;
 params.box_size = [500, 300];      % [Lx, Ly] pixels
 
+% Parallelization options
+use_parallel = true;               % Set to false to run sequentially
+n_workers = [];                    % [] = use default pool size
+
 %% ==================== CLEAR OLD ANALYSIS ====================
 if opts.clear_old_analysis && exist(output_base, 'dir')
     fprintf('Clearing old analysis data...\n');
@@ -90,161 +97,112 @@ if opts.clear_old_analysis && exist(output_base, 'dir')
     fprintf('Old analysis cleared.\n');
 end
 
-%% ==================== MAIN ANALYSIS LOOP ====================
+%% ==================== START PARALLEL POOL ====================
+if use_parallel
+    % Check if Parallel Computing Toolbox is available
+    if ~license('test', 'Distrib_Computing_Toolbox')
+        warning('Parallel Computing Toolbox not available. Running sequentially.');
+        use_parallel = false;
+    else
+        % Start parallel pool if not already running
+        pool = gcp('nocreate');
+        if isempty(pool)
+            if isempty(n_workers)
+                pool = parpool;
+            else
+                pool = parpool(n_workers);
+            end
+            fprintf('Started parallel pool with %d workers.\n', pool.NumWorkers);
+        else
+            fprintf('Using existing parallel pool with %d workers.\n', pool.NumWorkers);
+        end
+    end
+end
+
+%% ==================== BUILD JOB LIST ====================
+% Flatten experiments and frequencies into a single job array
+jobs = {};
+for exp_idx = 1:length(experiments)
+    exp = experiments{exp_idx};
+    for freq_idx = 1:length(frequencies)
+        freq = frequencies(freq_idx);
+        jobs{end+1} = struct('exp_idx', exp_idx, 'freq_idx', freq_idx, ...
+                             'exp', exp, 'freq', freq);
+    end
+end
+n_jobs = length(jobs);
+
 fprintf('==========================================================\n');
 fprintf('         COMPREHENSIVE PHONON ANALYSIS SUITE              \n');
+fprintf('             (PARALLEL MODE: %s)                          \n', string(use_parallel));
 fprintf('==========================================================\n');
 fprintf('Experiments: %d\n', length(experiments));
 fprintf('Frequencies: %d\n', length(frequencies));
-fprintf('Total analyses: %d\n\n', length(experiments) * length(frequencies));
+fprintf('Total jobs: %d\n\n', n_jobs);
 
-% Initialize log
-log_file = fullfile(output_base, 'analysis_log.txt');
-fid = fopen(log_file, 'w');
-fprintf(fid, 'Analysis Log - %s\n', datestr(now));
-fprintf(fid, '==========================================================\n\n');
-
-analysis_count = 0;
-total_analyses = length(experiments) * length(frequencies);
-
+%% ==================== CREATE OUTPUT FOLDERS ====================
+% Pre-create all output folders (parfor can't create nested folders reliably)
 for exp_idx = 1:length(experiments)
-    exp = experiments{exp_idx};
-    exp_name = exp.name;
-
-    fprintf('\n========== Experiment: %s ==========\n', exp_name);
-    fprintf(fid, '\nExperiment: %s\n', exp_name);
-    fprintf(fid, 'Description: %s\n', exp.desc);
-
-    % Create experiment output folder
-    exp_output = fullfile(output_base, exp_name);
+    exp_output = fullfile(output_base, experiments{exp_idx}.name);
     if ~exist(exp_output, 'dir')
         mkdir(exp_output);
     end
-
     for freq_idx = 1:length(frequencies)
-        freq = frequencies(freq_idx);
-        analysis_count = analysis_count + 1;
-
-        fprintf('\n--- Frequency %.4f (%d/%d overall) ---\n', freq, analysis_count, total_analyses);
-
-        % Build simulation path
-        sim_name = sprintf(exp.fmt, freq);
-        sim_path = fullfile(base_path, exp.folder, 'simulations', sim_name);
-        plist_path = fullfile(sim_path, 'plist.mat');
-        params_path = fullfile(sim_path, 'sim_params.mat');
-
-        % Check if simulation exists
-        if ~exist(plist_path, 'file')
-            fprintf('  [SKIP] Simulation not found: %s\n', sim_path);
-            fprintf(fid, '  Frequency %.4f: SKIPPED (not found)\n', freq);
-            continue;
-        end
-
-        % Create frequency output folder
-        freq_str = sprintf('f%.4f', freq);
+        freq_str = sprintf('f%.4f', frequencies(freq_idx));
         freq_output = fullfile(exp_output, freq_str);
         if ~exist(freq_output, 'dir')
             mkdir(freq_output);
         end
-
-        try
-            % Load data
-            fprintf('  Loading data...\n');
-            [xyz, sim_params] = load_simulation_data(plist_path, params_path, opts, params);
-
-            if isempty(xyz)
-                fprintf('  [SKIP] Failed to load data\n');
-                fprintf(fid, '  Frequency %.4f: SKIPPED (load failed)\n', freq);
-                continue;
-            end
-
-            [N_particles, ~, N_frames] = size(xyz);
-            fprintf('  Loaded: %d particles, %d frames\n', N_particles, N_frames);
-
-            % Prepare analysis context
-            ctx = struct();
-            ctx.xyz = xyz;
-            ctx.freq = freq;
-            ctx.exp_name = exp_name;
-            ctx.is_top_driven = exp.top_driven;
-            ctx.output_folder = freq_output;
-            ctx.params = params;
-            ctx.sim_params = sim_params;
-            ctx.opts = opts;
-            ctx.N_particles = N_particles;
-            ctx.N_frames = N_frames;
-
-            % Compute equilibrium positions
-            n_eq = min(10, N_frames);
-            ctx.x0 = mean(squeeze(xyz(:,1,1:n_eq)), 2);
-            ctx.y0 = mean(squeeze(xyz(:,2,1:n_eq)), 2);
-            ctx.z0 = mean(squeeze(xyz(:,3,1:n_eq)), 2);
-
-            % Determine primary axis
-            if ctx.is_top_driven
-                ctx.primary_axis = 'Y';
-                ctx.axis_len = sim_params.height;
-            else
-                ctx.primary_axis = 'X';
-                ctx.axis_len = sim_params.width;
-            end
-
-            % ========== RUN ALL ANALYSES ==========
-
-            % 1. Bode Plot Analysis
-            fprintf('  [1/10] Bode analysis...\n');
-            run_bode_analysis(ctx);
-
-            % 2. Fourier Analysis
-            fprintf('  [2/10] Fourier analysis...\n');
-            run_fourier_analysis(ctx);
-
-            % 3. Penetration Depth
-            fprintf('  [3/10] Penetration depth...\n');
-            run_penetration_analysis(ctx);
-
-            % 4. Resonance Detection
-            fprintf('  [4/10] Resonance detection...\n');
-            run_resonance_analysis(ctx);
-
-            % 5. Anisotropy
-            fprintf('  [5/10] Anisotropy analysis...\n');
-            run_anisotropy_analysis(ctx);
-
-            % 6. Momentum Space (Dispersion)
-            fprintf('  [6/10] Momentum space...\n');
-            run_momentum_analysis(ctx);
-
-            % 7. Resonant Decomposition
-            fprintf('  [7/10] Resonant decomposition...\n');
-            run_decomposition_analysis(ctx);
-
-            % 8. Velocity Autocorrelation & DOS
-            fprintf('  [8/10] VACF & DOS...\n');
-            run_vacf_analysis(ctx);
-
-            % 9. Mean Squared Displacement
-            fprintf('  [9/10] MSD analysis...\n');
-            run_msd_analysis(ctx);
-
-            % 10. Correlation Functions
-            fprintf('  [10/10] Correlation functions...\n');
-            run_correlation_analysis(ctx);
-
-            fprintf(fid, '  Frequency %.4f: SUCCESS\n', freq);
-
-        catch ME
-            fprintf('  [ERROR] %s\n', ME.message);
-            fprintf(fid, '  Frequency %.4f: ERROR - %s\n', freq, ME.message);
-            continue;
-        end
-
-        % Close figures to free memory
-        close all;
     end
 end
 
+%% ==================== MAIN ANALYSIS LOOP (PARALLEL) ====================
+% Results array for logging (cell array for parfor compatibility)
+log_results = cell(n_jobs, 1);
+
+if use_parallel
+    parfor job_idx = 1:n_jobs
+        job = jobs{job_idx};
+        log_results{job_idx} = run_single_analysis(job, base_path, output_base, opts, params);
+    end
+else
+    for job_idx = 1:n_jobs
+        job = jobs{job_idx};
+        fprintf('Job %d/%d: %s f=%.4f\n', job_idx, n_jobs, job.exp.name, job.freq);
+        log_results{job_idx} = run_single_analysis(job, base_path, output_base, opts, params);
+    end
+end
+
+%% ==================== WRITE LOG FILE ====================
+log_file = fullfile(output_base, 'analysis_log.txt');
+fid = fopen(log_file, 'w');
+fprintf(fid, 'Analysis Log - %s\n', datestr(now));
+fprintf(fid, 'Parallel mode: %s\n', string(use_parallel));
+fprintf(fid, '==========================================================\n\n');
+
+% Group results by experiment
+for exp_idx = 1:length(experiments)
+    exp = experiments{exp_idx};
+    fprintf(fid, '\nExperiment: %s\n', exp.name);
+    fprintf(fid, 'Description: %s\n', exp.desc);
+
+    for freq_idx = 1:length(frequencies)
+        job_idx = (exp_idx - 1) * length(frequencies) + freq_idx;
+        result = log_results{job_idx};
+        fprintf(fid, '  Frequency %.4f: %s\n', frequencies(freq_idx), result);
+    end
+end
 fclose(fid);
+
+% Count results
+n_success = sum(contains(log_results, 'SUCCESS'));
+n_skipped = sum(contains(log_results, 'SKIPPED'));
+n_error = sum(contains(log_results, 'ERROR'));
+
+fprintf('\n==========================================================\n');
+fprintf('              PARALLEL ANALYSIS COMPLETE                  \n');
+fprintf('==========================================================\n');
+fprintf('Success: %d | Skipped: %d | Errors: %d\n', n_success, n_skipped, n_error);
 
 %% ==================== GENERATE CROSS-FREQUENCY PLOTS ====================
 fprintf('\n========== Generating Cross-Frequency Analyses ==========\n');
@@ -285,8 +243,94 @@ fprintf('                  ANALYSIS COMPLETE                        \n');
 fprintf('==========================================================\n');
 fprintf('Output folder: %s\n', output_base);
 fprintf('Log file: %s\n', log_file);
-fprintf('Analyses completed: %d/%d\n', analysis_count, total_analyses);
+fprintf('Total jobs: %d (Success: %d, Skipped: %d, Errors: %d)\n', ...
+    n_jobs, n_success, n_skipped, n_error);
 fprintf('\nRun analysis_viewer.m to explore results interactively.\n');
+
+%% ==================== SINGLE ANALYSIS FUNCTION ====================
+function result = run_single_analysis(job, base_path, output_base, opts, params)
+    % Run all analyses for a single experiment/frequency combination
+    % Returns a log string for this job
+
+    exp = job.exp;
+    freq = job.freq;
+    exp_name = exp.name;
+
+    % Build paths
+    sim_name = sprintf(exp.fmt, freq);
+    sim_path = fullfile(base_path, exp.folder, 'simulations', sim_name);
+    plist_path = fullfile(sim_path, 'plist.mat');
+    params_path = fullfile(sim_path, 'sim_params.mat');
+
+    freq_str = sprintf('f%.4f', freq);
+    freq_output = fullfile(output_base, exp_name, freq_str);
+
+    % Check if simulation exists
+    if ~exist(plist_path, 'file')
+        result = 'SKIPPED (not found)';
+        return;
+    end
+
+    try
+        % Load data
+        [xyz, sim_params] = load_simulation_data(plist_path, params_path, opts, params);
+
+        if isempty(xyz)
+            result = 'SKIPPED (load failed)';
+            return;
+        end
+
+        [N_particles, ~, N_frames] = size(xyz);
+
+        % Prepare analysis context
+        ctx = struct();
+        ctx.xyz = xyz;
+        ctx.freq = freq;
+        ctx.exp_name = exp_name;
+        ctx.is_top_driven = exp.top_driven;
+        ctx.output_folder = freq_output;
+        ctx.params = params;
+        ctx.sim_params = sim_params;
+        ctx.opts = opts;
+        ctx.N_particles = N_particles;
+        ctx.N_frames = N_frames;
+
+        % Compute equilibrium positions
+        n_eq = min(10, N_frames);
+        ctx.x0 = mean(squeeze(xyz(:,1,1:n_eq)), 2);
+        ctx.y0 = mean(squeeze(xyz(:,2,1:n_eq)), 2);
+        ctx.z0 = mean(squeeze(xyz(:,3,1:n_eq)), 2);
+
+        % Determine primary axis
+        if ctx.is_top_driven
+            ctx.primary_axis = 'Y';
+            ctx.axis_len = sim_params.height;
+        else
+            ctx.primary_axis = 'X';
+            ctx.axis_len = sim_params.width;
+        end
+
+        % ========== RUN ALL ANALYSES ==========
+        run_bode_analysis(ctx);
+        run_fourier_analysis(ctx);
+        run_penetration_analysis(ctx);
+        run_resonance_analysis(ctx);
+        run_anisotropy_analysis(ctx);
+        run_momentum_analysis(ctx);
+        run_decomposition_analysis(ctx);
+        run_vacf_analysis(ctx);
+        run_msd_analysis(ctx);
+        run_correlation_analysis(ctx);
+
+        result = 'SUCCESS';
+
+    catch ME
+        result = sprintf('ERROR - %s', ME.message);
+    end
+
+    % Close all figures to free memory (important for parfor)
+    close all;
+end
 
 %% ==================== ANALYSIS FUNCTIONS ====================
 
