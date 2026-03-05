@@ -18,11 +18,11 @@ function interactive_simulation_viewer()
 base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
 
 % All available simulation types
-all_sim_types   = {'chevron', 'stripe', 'random', 'topdriven', 'frust_side', 'frust_top'};
-all_sim_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims', 'frustsinesims', 'frusttopsims'};
+all_sim_types   = {'chevron', 'stripe', 'random', 'topdriven', 'frust_side', 'frust_top', 'stripe_top'};
+all_sim_folders = {'drivensinesims', 'stripesinesims', 'randomsinesims', 'topdrivensims', 'frustsinesims', 'frusttopsims', 'stripetopsims'};
 all_name_fmts   = {'sinusoidal_f%.4f_a2.0', 'sinusoidal_f%.4f_a2.0_stripes', ...
                    'sinusoidal_f%.4f_a2.0_random', 'topdriven_f%.4f_a2.0', ...
-                   'frust_f%.4f_a2.0', 'frusttop_f%.4f_a2.0'};
+                   'frust_f%.4f_a2.0', 'frusttop_f%.4f_a2.0', 'stripetop_f%.4f_a2.0'};
 
 all_frequencies = [0.0004, 0.0005, 0.0006, 0.0007, 0.0008, 0.0009, ...
                    0.001,  0.0012, 0.0015, 0.0018, ...
@@ -58,11 +58,11 @@ uilabel(cp, 'Text', 'Show Views:', 'Position', [8 898 60 18], 'FontColor', 'w', 
 uilabel(cp, 'Text', 'X', 'Position', [115 898 15 18], 'FontColor', 'w', 'FontWeight', 'bold');
 uilabel(cp, 'Text', 'Y', 'Position', [175 898 15 18], 'FontColor', 'w', 'FontWeight', 'bold');
 
-cb_labels = {'Chev side', 'Stripe side', 'Rand side', 'Chev top', 'Frust side', 'Frust top'};
-cb_x = cell(6,1);  % X axis checkboxes
-cb_y = cell(6,1);  % Y axis checkboxes
-btn_graph_x = cell(6,1);  % Graph number buttons for X
-btn_graph_y = cell(6,1);  % Graph number buttons for Y
+cb_labels = {'Chev side', 'Stripe side', 'Rand side', 'Chev top', 'Frust side', 'Frust top', 'Stripe top'};
+cb_x = cell(7,1);  % X axis checkboxes
+cb_y = cell(7,1);  % Y axis checkboxes
+btn_graph_x = cell(7,1);  % Graph number buttons for X
+btn_graph_y = cell(7,1);  % Graph number buttons for Y
 
 % Graph colors for overlay visualization (up to 12 different graphs)
 graph_colors = [
@@ -80,7 +80,7 @@ graph_colors = [
     0.5 0.5 0.5;   % Gray (12)
 ];
 
-for i = 1:6
+for i = 1:7
     y_pos = 898 - i*20;
     uilabel(cp, 'Text', cb_labels{i}, 'Position', [8 y_pos 60 18], 'FontColor', 'w', 'FontSize', 9);
 
@@ -89,7 +89,7 @@ for i = 1:6
         'Position', [70 y_pos 20 18], ...
         'BackgroundColor', [0.3 0.3 0.3], 'FontColor', 'w', 'FontSize', 9, ...
         'FontWeight', 'bold', 'Tooltip', 'Graph # for X (click to cycle)');
-    is_top_driven = ismember(i, [4, 6]);
+    is_top_driven = ismember(i, [4, 6, 7]);  % chev top, frust top, stripe top
     cb_x{i} = uicheckbox(cp, 'Text', '', 'Value', ~is_top_driven && (i <= 5), ...
         'Position', [92 y_pos 25 18], 'FontColor', 'w');
 
@@ -214,8 +214,8 @@ S.x0_cache        = struct();   % Pre-computed equilibrium positions
 S.ymax_cache      = struct();   % Pre-computed max displacement for y-axis scaling
 S.topdriven_cache = struct();   % Whether sim is top-driven (uses Y axis)
 % Separate graph assignments for X and Y (0 = not assigned yet, 1-12 = graph number)
-S.graph_assignments_x = zeros(1, 6);  % Graph assignments for X checkboxes
-S.graph_assignments_y = zeros(1, 6);  % Graph assignments for Y checkboxes
+S.graph_assignments_x = zeros(1, 7);  % Graph assignments for X checkboxes
+S.graph_assignments_y = zeros(1, 7);  % Graph assignments for Y checkboxes
 S.graph_colors    = graph_colors;
 % Sidebar state
 S.sidebar_expanded = true;
@@ -284,13 +284,13 @@ dd_range_start.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 dd_range_end.ValueChangedFcn = @(~,~) cb_config_changed(fig);
 
 % Checkboxes - update graph assignments when checked/unchecked
-for i = 1:6
+for i = 1:7
     cb_x{i}.ValueChangedFcn = @(~,~) cb_checkbox_changed(fig, i, 'x');
     cb_y{i}.ValueChangedFcn = @(~,~) cb_checkbox_changed(fig, i, 'y');
 end
 
 % Graph number buttons - click to cycle assignment (separate for X and Y)
-for i = 1:6
+for i = 1:7
     btn_graph_x{i}.ButtonPushedFcn = @(~,~) cb_cycle_graph_num(fig, i, 'x');
     btn_graph_y{i}.ButtonPushedFcn = @(~,~) cb_cycle_graph_num(fig, i, 'y');
 end
@@ -302,7 +302,7 @@ fig.CloseRequestFcn = @(~,~) cb_close(fig);
 
 % Initialize graph assignments for default checked items
 graph_num = 0;
-for i = 1:6
+for i = 1:7
     if S.cb_x{i}.Value
         graph_num = graph_num + 1;
         S.graph_assignments_x(i) = graph_num;
@@ -429,7 +429,7 @@ end
 function n = count_checked(S)
     % Count total number of checked X and Y boxes
     n = 0;
-    for i = 1:6
+    for i = 1:7
         if S.cb_x{i}.Value, n = n + 1; end
         if S.cb_y{i}.Value, n = n + 1; end
     end
@@ -452,7 +452,7 @@ function S = renumber_graph_assignments(S)
     all_assignments = [];
     assignment_sources = {};  % Track where each assignment came from
 
-    for i = 1:6
+    for i = 1:7
         if S.cb_x{i}.Value && S.graph_assignments_x(i) > 0
             all_assignments(end+1) = S.graph_assignments_x(i);
             assignment_sources{end+1} = struct('type', 'x', 'idx', i);
@@ -478,7 +478,7 @@ function S = renumber_graph_assignments(S)
     end
 
     % Apply mapping
-    for i = 1:6
+    for i = 1:7
         if S.cb_x{i}.Value && S.graph_assignments_x(i) > 0
             old_val = S.graph_assignments_x(i);
             new_val = mapping(old_val);
@@ -924,7 +924,7 @@ function cb_load(fig, force_reload)
     % Use separate X and Y graph assignments
     % selected_views: array of structs with .sim_idx, .use_y, .label, .graph_num
     selected_views = {};
-    for i = 1:6
+    for i = 1:7
         st = S.all_sim_types{i};
         st_upper = upper(st);
         if S.cb_x{i}.Value
