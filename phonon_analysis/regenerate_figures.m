@@ -104,14 +104,14 @@ function fig = regenerate_bode(d, exp_name, freq_name)
     fig = figure('Position', [100 100 1000 400], 'Visible', 'off');
 
     subplot(1,2,1);
-    plot(bd.positions, bd.amplitudes, 'b-o', 'LineWidth', 1.5);
+    plot(bd.ctrs, bd.amplitudes, 'b-o', 'LineWidth', 1.5);
     xlabel('Distance from Drive (px)');
     ylabel('Amplitude');
     title(sprintf('Bode Amplitude - %s %s', exp_name, freq_name));
     grid on;
 
     subplot(1,2,2);
-    plot(bd.positions, unwrap(bd.phases) * 180/pi, 'r-o', 'LineWidth', 1.5);
+    plot(bd.ctrs, unwrap(bd.phases) * 180/pi, 'r-o', 'LineWidth', 1.5);
     xlabel('Distance from Drive (px)');
     ylabel('Phase (degrees)');
     title('Bode Phase');
@@ -122,28 +122,36 @@ function fig = regenerate_fourier(d, exp_name, freq_name)
     if ~isfield(d, 'fourier_data'), fig = []; return; end
     fd = d.fourier_data;
 
-    fig = figure('Position', [100 100 1000 400], 'Visible', 'off');
+    fig = figure('Position', [100 100 1200 400], 'Visible', 'off');
 
-    subplot(1,2,1);
-    semilogy(fd.frequencies, fd.power_spectrum, 'b-', 'LineWidth', 1);
+    subplot(1,3,1);
+    semilogy(fd.f, fd.P_total, 'k-', 'LineWidth', 1.5);
+    xlabel('Frequency (1/frame)');
+    ylabel('Power Spectral Density');
+    title(sprintf('Total Power - %s %s', exp_name, freq_name));
+    xlim([0 0.15]);
+    grid on;
+
+    subplot(1,3,2);
+    semilogy(fd.f, fd.Px, 'r-', 'LineWidth', 1.5, 'DisplayName', 'X');
+    hold on;
+    semilogy(fd.f, fd.Py, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Y');
+    semilogy(fd.f, fd.Pz, 'g-', 'LineWidth', 1.5, 'DisplayName', 'Z');
     xlabel('Frequency');
     ylabel('Power');
-    title(sprintf('Power Spectrum - %s %s', exp_name, freq_name));
+    title('Component Spectra');
+    legend('Location', 'northeast');
+    xlim([0 0.15]);
     grid on;
-    if isfield(fd, 'drive_freq')
-        hold on;
-        xline(fd.drive_freq, 'r--', 'LineWidth', 1.5);
-    end
 
-    subplot(1,2,2);
-    if isfield(fd, 'participation')
-        plot(fd.frequencies, fd.participation, 'g-', 'LineWidth', 1);
-        xlabel('Frequency');
-        ylabel('Participation Ratio');
-        title('Mode Localization');
-        ylim([0 1]);
-        grid on;
-    end
+    subplot(1,3,3);
+    plot(fd.f, fd.participation, 'm-', 'LineWidth', 1.5);
+    xlabel('Frequency');
+    ylabel('Participation Ratio');
+    title('Mode Localization');
+    ylim([0 1]);
+    xlim([0 0.15]);
+    grid on;
 end
 
 function fig = regenerate_penetration(d, exp_name, freq_name)
@@ -152,15 +160,17 @@ function fig = regenerate_penetration(d, exp_name, freq_name)
 
     fig = figure('Position', [100 100 600 400], 'Visible', 'off');
 
-    semilogy(pd.positions, pd.amplitudes, 'bo', 'MarkerSize', 6);
+    semilogy(pd.ctrs, pd.rms_amp + eps, 'bo', 'MarkerSize', 6);
     hold on;
-    if isfield(pd, 'fit_amplitudes')
-        semilogy(pd.positions, pd.fit_amplitudes, 'r-', 'LineWidth', 2);
+    if isfield(pd, 'fit_amp')
+        semilogy(pd.ctrs, pd.fit_amp, 'r-', 'LineWidth', 2);
     end
     xlabel('Distance from Drive (px)');
-    ylabel('Amplitude');
-    title(sprintf('Penetration - %s %s (δ=%.1f px)', exp_name, freq_name, pd.penetration_depth));
-    legend('Data', sprintf('Fit: δ=%.1f', pd.penetration_depth), 'Location', 'northeast');
+    ylabel('RMS Amplitude');
+    delta = pd.penetration_depth;
+    if isnan(delta), delta = 0; end
+    title(sprintf('Penetration - %s %s (δ=%.1f px)', exp_name, freq_name, delta));
+    legend('Data', sprintf('Fit: δ=%.1f', delta), 'Location', 'northeast');
     grid on;
 end
 
@@ -171,8 +181,8 @@ function fig = regenerate_resonance(d, exp_name, freq_name)
     fig = figure('Position', [100 100 1000 400], 'Visible', 'off');
 
     subplot(1,2,1);
-    if isfield(rd, 'frequencies') && isfield(rd, 'power')
-        semilogy(rd.frequencies, rd.power, 'b-', 'LineWidth', 1);
+    if isfield(rd, 'f') && isfield(rd, 'P')
+        semilogy(rd.f, rd.P, 'b-', 'LineWidth', 1);
         hold on;
         if ~isempty(rd.peak_freqs)
             for i = 1:min(5, length(rd.peak_freqs))
@@ -183,11 +193,13 @@ function fig = regenerate_resonance(d, exp_name, freq_name)
     xlabel('Frequency');
     ylabel('Power');
     title(sprintf('Resonance - %s %s', exp_name, freq_name));
+    xlim([0 0.15]);
     grid on;
 
     subplot(1,2,2);
     if ~isempty(rd.peak_freqs) && ~isempty(rd.q_factors)
-        bar(rd.peak_freqs(1:min(5,length(rd.peak_freqs))), rd.q_factors(1:min(5,length(rd.q_factors))));
+        n_peaks = min(5, min(length(rd.peak_freqs), length(rd.q_factors)));
+        bar(rd.peak_freqs(1:n_peaks), rd.q_factors(1:n_peaks));
         xlabel('Peak Frequency');
         ylabel('Q-Factor');
         title('Quality Factors');
@@ -196,45 +208,60 @@ function fig = regenerate_resonance(d, exp_name, freq_name)
 end
 
 function fig = regenerate_anisotropy(d, exp_name, freq_name)
-    if ~isfield(d, 'aniso_data'), fig = []; return; end
-    ad = d.aniso_data;
+    if ~isfield(d, 'anis_data'), fig = []; return; end
+    ad = d.anis_data;
 
     fig = figure('Position', [100 100 800 400], 'Visible', 'off');
 
     subplot(1,2,1);
-    if isfield(ad, 'positions') && isfield(ad, 'ratio')
-        plot(ad.positions, ad.ratio, 'mo-', 'LineWidth', 1.5);
-        xlabel('Distance from Drive (px)');
-        ylabel('X/Y Amplitude Ratio');
-        yline(1, 'k--');
-        title(sprintf('Anisotropy - %s %s', exp_name, freq_name));
-        grid on;
+    % Compute ratio from rms_x and rms_y
+    ratio = ad.rms_x ./ (ad.rms_y + eps);
+    if isfield(ad, 'ctrs')
+        plot(ad.ctrs, ratio, 'mo-', 'LineWidth', 1.5);
+    else
+        plot(ratio, 'mo-', 'LineWidth', 1.5);
     end
+    xlabel('Distance from Drive (px)');
+    ylabel('X/Y Amplitude Ratio');
+    yline(1, 'k--');
+    title(sprintf('Anisotropy - %s %s', exp_name, freq_name));
+    grid on;
 
     subplot(1,2,2);
-    if isfield(ad, 'mean_ratio')
-        bar([ad.amp_x, ad.amp_y]);
-        set(gca, 'XTickLabel', {'X', 'Y'});
-        ylabel('Mean Amplitude');
-        title(sprintf('Mean Ratio: %.2f', ad.mean_ratio));
-        grid on;
-    end
+    mean_x = mean(ad.rms_x(ad.rms_x > 0));
+    mean_y = mean(ad.rms_y(ad.rms_y > 0));
+    bar([mean_x, mean_y]);
+    set(gca, 'XTickLabel', {'X', 'Y'});
+    ylabel('Mean RMS Amplitude');
+    title(sprintf('Mean Ratio: %.2f', mean_x / (mean_y + eps)));
+    grid on;
 end
 
 function fig = regenerate_momentum(d, exp_name, freq_name)
     if ~isfield(d, 'mom_data'), fig = []; return; end
     md = d.mom_data;
 
-    fig = figure('Position', [100 100 800 600], 'Visible', 'off');
+    fig = figure('Position', [100 100 1000 400], 'Visible', 'off');
 
-    if isfield(md, 'S_kw') && isfield(md, 'k_vals') && isfield(md, 'omega_vals')
-        imagesc(md.k_vals, md.omega_vals, log10(md.S_kw' + eps));
+    subplot(1,2,1);
+    if isfield(md, 'S_k_omega') && isfield(md, 'k') && isfield(md, 'f')
+        imagesc(md.k, md.f, log10(md.S_k_omega' + eps));
         axis xy;
         colormap(hot);
         colorbar;
         xlabel('Wavevector k');
-        ylabel('Frequency ω');
+        ylabel('Frequency');
         title(sprintf('S(k,ω) - %s %s', exp_name, freq_name));
+        ylim([0 0.15]);
+    end
+
+    subplot(1,2,2);
+    if isfield(md, 'S_k')
+        plot(md.k, md.S_k, 'b-', 'LineWidth', 1.5);
+        xlabel('Wavevector k');
+        ylabel('S(k)');
+        title('Static Structure Factor');
+        grid on;
     end
 end
 
@@ -292,20 +319,22 @@ function fig = regenerate_vacf(d, exp_name, freq_name)
     fig = figure('Position', [100 100 1000 400], 'Visible', 'off');
 
     subplot(1,2,1);
-    if isfield(vd, 'lags') && isfield(vd, 'vacf')
-        plot(vd.lags, vd.vacf, 'b-', 'LineWidth', 1.5);
+    if isfield(vd, 't_lag') && isfield(vd, 'vacf')
+        plot(vd.t_lag, vd.vacf, 'b-', 'LineWidth', 1.5);
         xlabel('Lag (frames)');
-        ylabel('VACF');
+        ylabel('Normalized VACF');
         title(sprintf('Velocity Autocorrelation - %s %s', exp_name, freq_name));
+        yline(0, 'k--');
         grid on;
     end
 
     subplot(1,2,2);
-    if isfield(vd, 'dos_freq') && isfield(vd, 'dos')
-        plot(vd.dos_freq, vd.dos, 'r-', 'LineWidth', 1.5);
+    if isfield(vd, 'f_dos') && isfield(vd, 'dos')
+        plot(vd.f_dos, vd.dos, 'r-', 'LineWidth', 1.5);
         xlabel('Frequency');
         ylabel('DOS');
         title('Density of States');
+        xlim([0 0.15]);
         grid on;
     end
 end
@@ -316,13 +345,17 @@ function fig = regenerate_msd(d, exp_name, freq_name)
 
     fig = figure('Position', [100 100 600 400], 'Visible', 'off');
 
-    if isfield(md, 'lags') && isfield(md, 'msd')
-        loglog(md.lags, md.msd, 'g-', 'LineWidth', 1.5);
+    if isfield(md, 't_lag') && isfield(md, 'msd')
+        loglog(md.t_lag, md.msd, 'g-', 'LineWidth', 1.5);
         hold on;
-        if isfield(md, 'alpha')
+        if isfield(md, 'alpha') && ~isnan(md.alpha)
             % Plot reference line
-            ref_line = md.msd(1) * (md.lags / md.lags(1)).^md.alpha;
-            loglog(md.lags, ref_line, 'k--', 'LineWidth', 1);
+            valid = md.t_lag > 0 & md.msd > 0;
+            if any(valid)
+                t_ref = md.t_lag(valid);
+                ref_line = md.msd(find(valid,1)) * (t_ref / t_ref(1)).^md.alpha;
+                loglog(t_ref, ref_line, 'k--', 'LineWidth', 1);
+            end
             title(sprintf('MSD - %s %s (α=%.2f)', exp_name, freq_name, md.alpha));
         else
             title(sprintf('MSD - %s %s', exp_name, freq_name));
@@ -337,14 +370,25 @@ function fig = regenerate_correlation(d, exp_name, freq_name)
     if ~isfield(d, 'corr_data'), fig = []; return; end
     cd = d.corr_data;
 
-    fig = figure('Position', [100 100 600 400], 'Visible', 'off');
+    fig = figure('Position', [100 100 800 400], 'Visible', 'off');
 
-    if isfield(cd, 'distances') && isfield(cd, 'correlation')
-        plot(cd.distances, cd.correlation, 'c-o', 'LineWidth', 1.5);
+    subplot(1,2,1);
+    if isfield(cd, 'r') && isfield(cd, 'corr_xx')
+        plot(cd.r, cd.corr_xx, 'r-o', 'LineWidth', 1.5);
         xlabel('Distance (px)');
-        ylabel('Correlation');
+        ylabel('C_{xx}');
         yline(0, 'k--');
-        title(sprintf('Spatial Correlation - %s %s', exp_name, freq_name));
+        title(sprintf('X-X Correlation - %s %s', exp_name, freq_name));
+        grid on;
+    end
+
+    subplot(1,2,2);
+    if isfield(cd, 'r') && isfield(cd, 'corr_yy')
+        plot(cd.r, cd.corr_yy, 'b-o', 'LineWidth', 1.5);
+        xlabel('Distance (px)');
+        ylabel('C_{yy}');
+        yline(0, 'k--');
+        title('Y-Y Correlation');
         grid on;
     end
 end

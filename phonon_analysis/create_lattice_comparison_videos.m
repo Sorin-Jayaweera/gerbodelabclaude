@@ -246,9 +246,9 @@ function create_wavefront_video(analysis_base, experiments, exp_labels, exp_colo
                 data_path = fullfile(analysis_base, experiments{ei}, freq_str, 'bode_data.mat');
                 if exist(data_path, 'file')
                     d = load(data_path);
-                    if isfield(d, 'bode_data') && isfield(d.bode_data, 'positions')
+                    if isfield(d, 'bode_data') && isfield(d.bode_data, 'ctrs')
                         % Normalize position to [0, 1]
-                        pos_norm = d.bode_data.positions / max(d.bode_data.positions);
+                        pos_norm = d.bode_data.ctrs / max(d.bode_data.ctrs);
                         % Normalize amplitude to max = 1
                         amp_norm = d.bode_data.amplitudes / max(d.bode_data.amplitudes + eps);
 
@@ -278,8 +278,8 @@ function create_wavefront_video(analysis_base, experiments, exp_labels, exp_colo
                 data_path = fullfile(analysis_base, experiments{ei}, freq_str, 'bode_data.mat');
                 if exist(data_path, 'file')
                     d = load(data_path);
-                    if isfield(d, 'bode_data') && isfield(d.bode_data, 'positions')
-                        pos_norm = d.bode_data.positions / max(d.bode_data.positions);
+                    if isfield(d, 'bode_data') && isfield(d.bode_data, 'ctrs')
+                        pos_norm = d.bode_data.ctrs / max(d.bode_data.ctrs);
                         phase_deg = unwrap(d.bode_data.phases) * 180/pi;
 
                         plot(pos_norm, phase_deg, [exp_colors{ei} '-o'], ...
