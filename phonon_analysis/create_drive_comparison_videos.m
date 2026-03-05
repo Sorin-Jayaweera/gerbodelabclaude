@@ -20,23 +20,23 @@ end
 freq = 0.003;
 
 % Simulation types to compare
+% Folder names and formats must match run_full_analysis.m experiments
 sim_types = {
-    % name, side_folder, side_fmt, top_folder, top_fmt
-    struct('name', 'zigzag', ...
-           'side_folder', 'sidedriven', ...
-           'side_fmt', 'sinusoidal_f%.4f_a2.0', ...
-           'top_folder', 'topdriven', ...
-           'top_fmt', 'sinusoidal_f%.4f_a2.0_top');
-    struct('name', 'stripe', ...
-           'side_folder', 'stripesinesims', ...
-           'side_fmt', 'sinusoidal_f%.4f_a2.0_stripes', ...
-           'top_folder', 'stripetopdrivensims', ...
-           'top_fmt', 'sinusoidal_f%.4f_a2.0_stripes_top');
     struct('name', 'chevron', ...
            'side_folder', 'drivensinesims', ...
            'side_fmt', 'sinusoidal_f%.4f_a2.0', ...
-           'top_folder', 'chevrontopdrivensims', ...
-           'top_fmt', 'sinusoidal_f%.4f_a2.0_chevron_top');
+           'top_folder', 'topdrivensims', ...
+           'top_fmt', 'topdriven_f%.4f_a2.0');
+    struct('name', 'stripe', ...
+           'side_folder', 'stripesinesims', ...
+           'side_fmt', 'sinusoidal_f%.4f_a2.0_stripes', ...
+           'top_folder', '', ...
+           'top_fmt', '');  % No top-driven stripe sims
+    struct('name', 'frustrated', ...
+           'side_folder', 'frustsinesims', ...
+           'side_fmt', 'frust_f%.4f_a2.0', ...
+           'top_folder', 'frusttopsims', ...
+           'top_fmt', 'frusttop_f%.4f_a2.0');
 };
 
 % Video settings
@@ -48,51 +48,60 @@ for si = 1:length(sim_types)
     st = sim_types{si};
     fprintf('\n=== Processing %s ===\n', st.name);
 
-    % Load side-driven data
+    % Build paths
     side_path = fullfile(base_path, st.side_folder, sprintf(st.side_fmt, freq), 'xyz_data.mat');
-    top_path = fullfile(base_path, st.top_folder, sprintf(st.top_fmt, freq), 'xyz_data.mat');
-
-    % Check if both files exist
-    if ~exist(side_path, 'file')
-        fprintf('  [SKIP] Side-driven data not found: %s\n', side_path);
-        continue;
-    end
-    if ~exist(top_path, 'file')
-        fprintf('  [SKIP] Top-driven data not found: %s\n', top_path);
-        continue;
+    if ~isempty(st.top_folder)
+        top_path = fullfile(base_path, st.top_folder, sprintf(st.top_fmt, freq), 'xyz_data.mat');
+    else
+        top_path = '';
     end
 
-    fprintf('  Loading side-driven: %s\n', side_path);
-    side_data = load(side_path);
-    xyz_side = side_data.xyz;
-    [N_side, ~, n_frames_side] = size(xyz_side);
+    % Check if at least one exists
+    has_side = exist(side_path, 'file');
+    has_top = ~isempty(top_path) && exist(top_path, 'file');
 
-    fprintf('  Loading top-driven: %s\n', top_path);
-    top_data = load(top_path);
-    xyz_top = top_data.xyz;
-    [N_top, ~, n_frames_top] = size(xyz_top);
+    if ~has_side && ~has_top
+        fprintf('  [SKIP] No data found for %s\n', st.name);
+        if ~has_side, fprintf('    Side: %s\n', side_path); end
+        if ~isempty(top_path) && ~has_top, fprintf('    Top: %s\n', top_path); end
+        continue;
+    end
+    if ~has_side
+        fprintf('  [NOTE] Side-driven data not found, showing top-driven only\n');
+    end
+    if ~has_top
+        fprintf('  [NOTE] Top-driven data not found, showing side-driven only\n');
+    end
 
-    % Use minimum number of frames
-    n_frames = min(n_frames_side, n_frames_top);
-    fprintf('  Particles: side=%d, top=%d | Frames: %d\n', N_side, N_top, n_frames);
+    % Load available data
+    n_frames = inf;
 
-    % Get axis lengths
-    W_side = max(xyz_side(:,1,1));
-    H_side = max(xyz_side(:,2,1));
-    W_top = max(xyz_top(:,1,1));
-    H_top = max(xyz_top(:,2,1));
+    if has_side
+        fprintf('  Loading side-driven: %s\n', side_path);
+        side_data = load(side_path);
+        xyz_side = side_data.xyz;
+        [N_side, ~, n_frames_side] = size(xyz_side);
+        n_frames = min(n_frames, n_frames_side);
+        W_side = max(xyz_side(:,1,1));
+        axis_len_side = W_side;
+        edges_side = linspace(0, axis_len_side, n_bins+1);
+        fprintf('  Side: %d particles, %d frames\n', N_side, n_frames_side);
+    end
 
-    % For side-driven: distance from left edge (X), displacement in X direction
-    % For top-driven: distance from top edge (Y), displacement in Y direction
-    % We'll normalize both to compare
+    if has_top
+        fprintf('  Loading top-driven: %s\n', top_path);
+        top_data = load(top_path);
+        xyz_top = top_data.xyz;
+        [N_top, ~, n_frames_top] = size(xyz_top);
+        n_frames = min(n_frames, n_frames_top);
+        H_top = max(xyz_top(:,2,1));
+        axis_len_top = H_top;
+        edges_top = linspace(0, axis_len_top, n_bins+1);
+        fprintf('  Top: %d particles, %d frames\n', N_top, n_frames_top);
+    end
 
-    axis_len_side = W_side;  % Side driven: X is distance
-    axis_len_top = H_top;    % Top driven: Y is distance (from top)
-
-    % Set up binning
-    edges_side = linspace(0, axis_len_side, n_bins+1);
-    edges_top = linspace(0, axis_len_top, n_bins+1);
     ctrs = linspace(0, 1, n_bins);  % Normalized centers for comparison
+    fprintf('  Using %d frames\n', n_frames);
 
     % Create video
     output_file = fullfile(output_folder, sprintf('%s_comparison_f%.4f.mp4', st.name, freq));
@@ -109,43 +118,49 @@ for si = 1:length(sim_types)
     for fr = 1:n_frames
         clf(fig);
 
-        % === Side-driven wavefront ===
-        x_side = xyz_side(:,1,fr);
-        dx_side = xyz_side(:,1,fr) - xyz_side(:,1,1);  % X displacement
+        y_max_vals = [0.5];  % minimum scale
 
-        % Bin by X position
-        [~, ~, bin_side] = histcounts(x_side, edges_side);
+        % === Side-driven wavefront ===
         bin_mean_side = zeros(n_bins, 1);
-        for b = 1:n_bins
-            in_bin = (bin_side == b);
-            if any(in_bin)
-                bin_mean_side(b) = mean(dx_side(in_bin));
+        if has_side
+            x_side = xyz_side(:,1,fr);
+            dx_side = xyz_side(:,1,fr) - xyz_side(:,1,1);
+            [~, ~, bin_side] = histcounts(x_side, edges_side);
+            for b = 1:n_bins
+                in_bin = (bin_side == b);
+                if any(in_bin)
+                    bin_mean_side(b) = mean(dx_side(in_bin));
+                end
             end
+            y_max_vals(end+1) = max(abs(bin_mean_side(:)));
         end
 
         % === Top-driven wavefront ===
-        y_top = xyz_top(:,2,fr);
-        dy_top = xyz_top(:,2,fr) - xyz_top(:,2,1);  % Y displacement
-
-        % Distance from TOP (flip so top = 0)
-        dist_from_top = H_top - y_top;
-
-        % Bin by distance from top
-        [~, ~, bin_top] = histcounts(dist_from_top, edges_top);
         bin_mean_top = zeros(n_bins, 1);
-        for b = 1:n_bins
-            in_bin = (bin_top == b);
-            if any(in_bin)
-                bin_mean_top(b) = mean(dy_top(in_bin));
+        if has_top
+            y_top = xyz_top(:,2,fr);
+            dy_top = xyz_top(:,2,fr) - xyz_top(:,2,1);
+            dist_from_top = H_top - y_top;
+            [~, ~, bin_top] = histcounts(dist_from_top, edges_top);
+            for b = 1:n_bins
+                in_bin = (bin_top == b);
+                if any(in_bin)
+                    bin_mean_top(b) = mean(dy_top(in_bin));
+                end
             end
+            y_max_vals(end+1) = max(abs(bin_mean_top(:)));
         end
 
         % === Plot comparison ===
         ax = axes(fig, 'Position', [0.1 0.15 0.85 0.75]);
         hold(ax, 'on');
 
-        plot(ax, ctrs, bin_mean_side, 'c-', 'LineWidth', 2, 'DisplayName', 'Side-driven (X disp)');
-        plot(ax, ctrs, bin_mean_top, 'r-', 'LineWidth', 2, 'DisplayName', 'Top-driven (Y disp)');
+        if has_side
+            plot(ax, ctrs, bin_mean_side, 'c-', 'LineWidth', 2, 'DisplayName', 'Side-driven (X disp)');
+        end
+        if has_top
+            plot(ax, ctrs, bin_mean_top, 'r-', 'LineWidth', 2, 'DisplayName', 'Top-driven (Y disp)');
+        end
 
         xlabel(ax, 'Normalized Distance from Drive', 'Color', 'w', 'FontSize', 12);
         ylabel(ax, 'Mean Displacement (px)', 'Color', 'w', 'FontSize', 12);
@@ -159,8 +174,8 @@ for si = 1:length(sim_types)
         grid(ax, 'on');
         xlim(ax, [0 1]);
 
-        % Auto-scale Y but keep symmetric around 0 and consistent
-        y_max = max([max(abs(bin_mean_side(:))), max(abs(bin_mean_top(:))), 0.5]);
+        % Auto-scale Y but keep symmetric around 0
+        y_max = max(y_max_vals);
         ylim(ax, [-y_max*1.1, y_max*1.1]);
 
         % Capture frame
