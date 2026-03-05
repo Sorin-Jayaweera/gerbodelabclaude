@@ -954,9 +954,16 @@ function run_decomposition_analysis(ctx)
     % Show first mode shape
     mode1_x = modes(1:N_particles, 1);
     mode1_y = modes(N_particles+1:end, 1);
-    scatter(x0, y0, 20, sqrt(mode1_x.^2 + mode1_y.^2), 'filled');
+    mode_amp = sqrt(mode1_x.^2 + mode1_y.^2);
+    scatter(x0, y0, 20, mode_amp, 'filled');
     colormap(hot);
-    colorbar;
+    cb = colorbar;
+    % Use percentile-based color scaling to avoid drive edge dominating
+    clim_max = prctile(mode_amp, 95);  % 95th percentile
+    if clim_max > 0
+        clim([0 clim_max]);
+        cb.Label.String = 'Amplitude (95th pctl)';
+    end
     axis equal;
     title('Mode 1 Amplitude');
     xlabel('X'); ylabel('Y');
