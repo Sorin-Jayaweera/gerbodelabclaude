@@ -2107,35 +2107,56 @@ function export_combined_video(fig, view_mode, output_folder, file_prefix)
                 st = vc.sim_type;
                 use_y = vc.use_y;
 
-                if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
-
-                xyz = S.data.(st);
-                n_fr = size(xyz, 3);
-                frame = min(fr, n_fr);
-                p = S.params.(st);
-                W = p.width; H = p.height;
-                axis_len = ternary(use_y, H, W);
+                % Check if this is an overlay panel
+                view_indices = [];
+                if isfield(vc, 'view_indices')
+                    view_indices = vc.view_indices;
+                end
+                is_overlay = strcmp(view_mode, 'wavefront') && length(view_indices) > 1;
 
                 % Create subplot
                 ax = subplot(rows, cols, idx, 'Parent', export_fig);
                 set(ax, 'Color', 'k', 'XColor', 'w', 'YColor', 'w');
-                title(ax, sprintf('%s (%s)', upper(st), ternary(use_y, 'Y', 'X')), 'Color', 'w');
 
-                % Draw based on view mode
-                switch view_mode
-                    case 'particles'
-                        draw_particles(ax, xyz, frame, W, H);
-                    case 'wavefront'
-                        if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
-                            multi_data = S.multi_freq_data.(st);
-                        else
-                            multi_data = {xyz};
-                        end
-                        draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
-                    case 'kymograph'
-                        draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
-                    case 'delaunay'
-                        draw_delaunay(ax, xyz, frame, W, H);
+                if is_overlay
+                    % Overlay mode: draw multiple simulations on same axes
+                    % Build title from all views
+                    labels = {};
+                    for vi = view_indices
+                        v = S.selected_views{vi};
+                        labels{end+1} = sprintf('%s(%s)', upper(S.all_sim_types{v.sim_idx}), ternary(v.use_y,'Y','X'));
+                    end
+                    title(ax, strjoin(labels, '+'), 'Color', 'w');
+                    draw_wavefront_overlay(ax, S, view_indices);
+                else
+                    % Single view mode
+                    if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
+
+                    xyz = S.data.(st);
+                    n_fr = size(xyz, 3);
+                    frame = min(fr, n_fr);
+                    p = S.params.(st);
+                    W = p.width; H = p.height;
+                    axis_len = ternary(use_y, H, W);
+
+                    title(ax, sprintf('%s (%s)', upper(st), ternary(use_y, 'Y', 'X')), 'Color', 'w');
+
+                    % Draw based on view mode
+                    switch view_mode
+                        case 'particles'
+                            draw_particles(ax, xyz, frame, W, H);
+                        case 'wavefront'
+                            if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                                multi_data = S.multi_freq_data.(st);
+                            else
+                                multi_data = {xyz};
+                            end
+                            draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
+                        case 'kymograph'
+                            draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+                        case 'delaunay'
+                            draw_delaunay(ax, xyz, frame, W, H);
+                    end
                 end
             end
 
@@ -2191,17 +2212,34 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
         st = vc.sim_type;
         use_y = vc.use_y;
 
-        if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
+        % Check if this is an overlay panel
+        view_indices = [];
+        if isfield(vc, 'view_indices')
+            view_indices = vc.view_indices;
+        end
+        is_overlay = strcmp(view_mode, 'wavefront') && length(view_indices) > 1;
 
-        xyz = S.data.(st);
-        p = S.params.(st);
-        W = p.width; H = p.height;
-        axis_len = ternary(use_y, H, W);
+        if ~is_overlay
+            if ~isfield(S.data, st) || isempty(S.data.(st)); continue; end
+        end
 
-        % Create filename
-        axis_label = ternary(use_y, 'Y', 'X');
-        filename = fullfile(output_folder, sprintf('%s_%s_%s_%s_%s.mp4', ...
-            file_prefix, upper(st), axis_label, view_mode, timestamp));
+        % Build filename and title based on overlay status
+        if is_overlay
+            labels = {};
+            for vi = view_indices
+                v = S.selected_views{vi};
+                labels{end+1} = sprintf('%s_%s', upper(S.all_sim_types{v.sim_idx}), ternary(v.use_y,'Y','X'));
+            end
+            panel_name = strjoin(labels, '+');
+            title_str = strjoin(labels, '+');
+        else
+            axis_label = ternary(use_y, 'Y', 'X');
+            panel_name = sprintf('%s_%s', upper(st), axis_label);
+            title_str = sprintf('%s (%s)', upper(st), axis_label);
+        end
+
+        filename = fullfile(output_folder, sprintf('%s_%s_%s_%s.mp4', ...
+            file_prefix, panel_name, view_mode, timestamp));
 
         % Create VideoWriter
         try
@@ -2210,7 +2248,7 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
             vw.Quality = 95;
             open(vw);
         catch ME
-            S.txt_status.Value = {sprintf('Failed to create video for %s: %s', st, ME.message)};
+            S.txt_status.Value = {sprintf('Failed to create video for %s: %s', panel_name, ME.message)};
             continue;
         end
 
@@ -2219,41 +2257,65 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
         ax = axes(export_fig, 'Color', 'k', 'XColor', 'w', 'YColor', 'w');
 
         try
-            n_fr = size(xyz, 3);
+            if is_overlay
+                % For overlays, iterate frames and call draw_wavefront_overlay
+                for fr = 1:n_frames
+                    S.frame = fr;
+                    fig.UserData = S;
+                    cla(ax);
+                    draw_wavefront_overlay(ax, S, view_indices);
+                    title(ax, sprintf('%s - Frame %d', title_str, fr), 'Color', 'w', 'FontSize', 14);
 
-            for fr = 1:n_frames
-                frame = min(fr, n_fr);
-                cla(ax);
+                    frame_img = getframe(export_fig);
+                    writeVideo(vw, frame_img.cdata);
 
-                % Draw based on view mode
-                switch view_mode
-                    case 'particles'
-                        draw_particles(ax, xyz, frame, W, H);
-                    case 'wavefront'
-                        if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
-                            multi_data = S.multi_freq_data.(st);
-                        else
-                            multi_data = {xyz};
-                        end
-                        draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
-                    case 'kymograph'
-                        draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
-                    case 'delaunay'
-                        draw_delaunay(ax, xyz, frame, W, H);
+                    if mod(fr, 100) == 0
+                        S.txt_status.Value = {sprintf('Exporting %s: %d/%d', panel_name, fr, n_frames)};
+                        drawnow;
+                    end
                 end
+            else
+                % Single view mode
+                xyz = S.data.(st);
+                p = S.params.(st);
+                W = p.width; H = p.height;
+                axis_len = ternary(use_y, H, W);
+                n_fr = size(xyz, 3);
 
-                title(ax, sprintf('%s (%s) - Frame %d', upper(st), axis_label, frame), 'Color', 'w', 'FontSize', 14);
+                for fr = 1:n_frames
+                    frame = min(fr, n_fr);
+                    cla(ax);
 
-                % Capture and write frame
-                frame_img = getframe(export_fig);
-                writeVideo(vw, frame_img.cdata);
+                    % Draw based on view mode
+                    switch view_mode
+                        case 'particles'
+                            draw_particles(ax, xyz, frame, W, H);
+                        case 'wavefront'
+                            if isfield(S, 'multi_freq_data') && isfield(S.multi_freq_data, st)
+                                multi_data = S.multi_freq_data.(st);
+                            else
+                                multi_data = {xyz};
+                            end
+                            draw_wavefront_multifreq(ax, multi_data, S.manual_freqs, frame, axis_len, use_y);
+                        case 'kymograph'
+                            draw_kymograph_dynamic(ax, xyz, axis_len, use_y);
+                        case 'delaunay'
+                            draw_delaunay(ax, xyz, frame, W, H);
+                    end
 
-                % Update progress periodically
-                if mod(fr, 100) == 0
-                    S.txt_status.Value = {sprintf('Exporting %s_%s: %d/%d', upper(st), axis_label, fr, n_frames)};
-                    drawnow;
+                    title(ax, sprintf('%s - Frame %d', title_str, frame), 'Color', 'w', 'FontSize', 14);
+
+                    % Capture and write frame
+                    frame_img = getframe(export_fig);
+                    writeVideo(vw, frame_img.cdata);
+
+                    % Update progress periodically
+                    if mod(fr, 100) == 0
+                        S.txt_status.Value = {sprintf('Exporting %s: %d/%d', panel_name, fr, n_frames)};
+                        drawnow;
+                    end
                 end
-            end
+            end  % end if is_overlay else
 
             close(vw);
             close(export_fig);
@@ -2262,7 +2324,7 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
         catch ME
             close(vw);
             close(export_fig);
-            S.txt_status.Value = {sprintf('Export failed for %s: %s', st, ME.message)};
+            S.txt_status.Value = {sprintf('Export failed for %s: %s', panel_name, ME.message)};
         end
     end
 

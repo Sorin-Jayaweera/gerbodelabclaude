@@ -76,27 +76,61 @@ for ci = 1:length(sim_configs)
                         plist = loaded.(fn{1});
                     end
 
-                    % Convert to xyz format
-                    N_frames = length(plist);
-                    if N_frames == 0
-                        continue;
-                    end
-
-                    % Get particle count from first frame
-                    if isstruct(plist)
+                    % Handle different plist formats
+                    if isstruct(plist) && isfield(plist, 'pos')
+                        % Format 1: struct array with .pos field
+                        N_frames = length(plist);
+                        if N_frames == 0
+                            continue;
+                        end
                         N_particles = size(plist(1).pos, 1);
-                    else
-                        N_particles = size(plist{1}, 1);
-                    end
-
-                    xyz = zeros(N_particles, 3, N_frames);
-
-                    for t = 1:N_frames
-                        if isstruct(plist)
+                        xyz = zeros(N_particles, 3, N_frames);
+                        for t = 1:N_frames
                             xyz(:,:,t) = plist(t).pos;
-                        else
+                        end
+
+                    elseif iscell(plist)
+                        % Format 2: cell array of position matrices
+                        N_frames = length(plist);
+                        if N_frames == 0
+                            continue;
+                        end
+                        N_particles = size(plist{1}, 1);
+                        xyz = zeros(N_particles, 3, N_frames);
+                        for t = 1:N_frames
                             xyz(:,:,t) = plist{t};
                         end
+
+                    elseif isnumeric(plist) && size(plist, 2) >= 4
+                        % Format 3: matrix [x, y, z, frame_id, ...]
+                        frame_col = plist(:, 4);
+                        all_frame_ids = unique(frame_col);
+                        N_frames = length(all_frame_ids);
+                        if N_frames == 0
+                            continue;
+                        end
+
+                        % Count particles in first frame
+                        first_frame_mask = (frame_col == all_frame_ids(1));
+                        N_particles = sum(first_frame_mask);
+                        xyz = zeros(N_particles, 3, N_frames);
+
+                        for t = 1:N_frames
+                            mask = (frame_col == all_frame_ids(t));
+                            frame_data = plist(mask, 1:3);
+                            n_use = min(size(frame_data, 1), N_particles);
+                            xyz(1:n_use, :, t) = frame_data(1:n_use, :);
+                        end
+
+                    elseif isnumeric(plist) && ndims(plist) == 3
+                        % Format 4: already xyz format [N x 3 x frames]
+                        xyz = plist;
+                        N_particles = size(xyz, 1);
+                        N_frames = size(xyz, 3);
+
+                    else
+                        error('Unknown plist format: class=%s, size=%s', ...
+                            class(plist), mat2str(size(plist)));
                     end
 
                     % Save xyz_data.mat
