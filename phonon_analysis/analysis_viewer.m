@@ -216,8 +216,8 @@ function populate_tree(fig)
         exp_name = exp_folders(i).name;
         exp_path = fullfile(base_path, exp_name);
 
-        % Skip documentation folder
-        if strcmp(exp_name, 'documentation')
+        % Skip documentation and videos folders
+        if strcmp(exp_name, 'documentation') || strcmp(exp_name, 'videos')
             continue;
         end
 
@@ -234,26 +234,26 @@ function populate_tree(fig)
                 'type', get_analysis_type(name)));
         end
 
-        % Get frequency folders
-        freq_folders = dir(exp_path);
-        freq_folders = freq_folders([freq_folders.isdir] & startsWith({freq_folders.name}, 'f'));
+        % Get all subdirectories (frequency folders or comparison type folders)
+        sub_folders = dir(exp_path);
+        sub_folders = sub_folders([sub_folders.isdir] & ~startsWith({sub_folders.name}, '.'));
 
-        for j = 1:length(freq_folders)
-            freq_name = freq_folders(j).name;
-            freq_path = fullfile(exp_path, freq_name);
+        for j = 1:length(sub_folders)
+            sub_name = sub_folders(j).name;
+            sub_path = fullfile(exp_path, sub_name);
 
-            % Create frequency node
-            freq_node = uitreenode(exp_node, 'Text', freq_name, ...
+            % Create subnode
+            sub_node = uitreenode(exp_node, 'Text', sub_name, ...
                 'NodeData', struct('filepath', '', 'type', 'frequency'));
 
             % Get plot files
-            plot_files = dir(fullfile(freq_path, '*.png'));
+            plot_files = dir(fullfile(sub_path, '*.png'));
 
             for k = 1:length(plot_files)
                 [~, name, ~] = fileparts(plot_files(k).name);
-                file_path = fullfile(freq_path, plot_files(k).name);
+                file_path = fullfile(sub_path, plot_files(k).name);
 
-                uitreenode(freq_node, 'Text', name, ...
+                uitreenode(sub_node, 'Text', name, ...
                     'NodeData', struct('filepath', file_path, ...
                     'type', get_analysis_type(name)));
             end
