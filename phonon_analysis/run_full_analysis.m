@@ -72,6 +72,7 @@ opts.save_mat = true;              % Save .mat data files
 opts.frame_range = [0 100];        % Percent range to load [start end]
 opts.n_bins_spatial = 60;          % Spatial bins for wavefront
 opts.n_bins_kymo = 80;             % Bins for kymograph
+opts.create_videos = true;         % Create frequency evolution videos
 
 % Physical parameters
 params = struct();
@@ -253,6 +254,16 @@ end
 %% ==================== GENERATE DOCUMENTATION ====================
 fprintf('\n========== Generating Documentation ==========\n');
 generate_analysis_documentation(output_base, experiments, frequencies);
+
+%% ==================== GENERATE FREQUENCY EVOLUTION VIDEOS ====================
+if opts.create_videos
+    fprintf('\n========== Generating Frequency Evolution Videos ==========\n');
+    video_opts = struct();
+    video_opts.frame_rate = 2;  % 2 fps - each frequency visible for 0.5 sec
+    video_opts.video_format = 'mp4';
+    video_opts.add_labels = true;
+    stitch_frequency_videos(output_base, experiments, frequencies, video_opts);
+end
 
 %% ==================== SUMMARY ====================
 fprintf('\n==========================================================\n');
