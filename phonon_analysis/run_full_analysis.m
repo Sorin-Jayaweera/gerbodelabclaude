@@ -973,7 +973,8 @@ function run_decomposition_analysis(ctx)
     if ctx.opts.save_mat
         decomp_data = struct('singular_values', singular_values, ...
             'explained_variance', explained_variance, ...
-            'modes', modes, 'temporal', V);
+            'modes', modes, 'temporal', V, ...
+            'x0', x0, 'y0', y0);  % Save positions for figure regeneration
         save(fullfile(ctx.output_folder, 'decomposition_data.mat'), 'decomp_data');
     end
 
