@@ -16,9 +16,20 @@ if ~exist(output_folder, 'dir')
 end
 
 % Experiments to compare (must match folder names in analysis_output)
-experiments = {'zigzag_topdriven', 'stripe_topdriven', 'chevron_topdriven', 'frust_top'};
-exp_labels = {'Zigzag', 'Stripe', 'Chevron', 'Frustrated'};
-exp_colors = {'b', 'r', 'g', 'm'};
+% Side-driven experiments
+experiments_side = {'chevron_side', 'stripe_side', 'frust_side'};
+labels_side = {'Chevron (side)', 'Stripe (side)', 'Frust (side)'};
+colors_side = {'b', 'r', 'g'};
+
+% Top-driven experiments
+experiments_top = {'chevron_top', 'frust_top'};
+labels_top = {'Chevron (top)', 'Frust (top)'};
+colors_top = {'c', 'm'};
+
+% Combine all
+experiments = [experiments_side, experiments_top];
+exp_labels = [labels_side, labels_top];
+exp_colors = [colors_side, colors_top];
 
 % Find available frequencies (from first experiment that exists)
 available_freqs = [];
