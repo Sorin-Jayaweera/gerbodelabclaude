@@ -744,6 +744,7 @@ end
 
 function cb_mode(fig, mode)
     S = fig.UserData;
+    old_mode = S.view_mode;
     S.view_mode = mode;
     dim = [0.4 0.4 0.4]; act = [0.3 0.6 0.3];
     S.btn_part.BackgroundColor = dim;
@@ -757,7 +758,16 @@ function cb_mode(fig, mode)
         case 'delaunay',   S.btn_dela.BackgroundColor = act;
     end
     fig.UserData = S;
-    render(fig);
+
+    % When switching to/from wavefront, panels need to be rebuilt
+    % (wavefront groups by graph_num, other modes give each view its own panel)
+    % Also rebuild when switching between any modes to reset axis properties
+    if S.data_loaded && ~isempty(S.axs)
+        % Rebuild panels using cached data (force_reload=false)
+        cb_load(fig, false);
+    else
+        render(fig);
+    end
 end
 
 function cb_toggle_sync(fig)
@@ -1533,6 +1543,9 @@ end
 function draw_wavefront_multifreq(ax, multi_data, freqs, fr, axis_len, use_y)
     % Plot wavefronts for multiple frequencies overlaid
     cla(ax); hold(ax,'on');
+    % Reset aspect ratio (particles/delaunay set daspect [1 1 1] which persists)
+    daspect(ax, 'auto');
+    pbaspect(ax, 'auto');
 
     % Color palette for different frequencies
     colors = [0 1 1;      % cyan
@@ -1617,6 +1630,9 @@ function draw_wavefront_overlay(ax, S, view_indices)
     % Each simulation gets a unique color, frequencies get different line styles
     % Y-driven sims are flipped so drive appears at same position as X-driven (left)
     cla(ax); hold(ax,'on');
+    % Reset aspect ratio (particles/delaunay set daspect [1 1 1] which persists)
+    daspect(ax, 'auto');
+    pbaspect(ax, 'auto');
 
     % Line styles for different frequencies
     line_styles = {'-', '--', ':', '-.'};
@@ -1832,6 +1848,9 @@ end
 function draw_kymograph_dynamic(ax, xyz, axis_len, use_y)
     % Compute kymograph on-the-fly with selected axis
     cla(ax);
+    % Reset aspect ratio (particles/delaunay set daspect [1 1 1] which persists)
+    daspect(ax, 'auto');
+    pbaspect(ax, 'auto');
     n_fr = size(xyz, 3);
     n_bins = 80;
     edges = linspace(0, axis_len, n_bins+1);
