@@ -93,15 +93,25 @@ function xyz = load_sim_data(base_path, config, freq)
         % Try xyz_data.mat first
         xyz_path = fullfile(sim_path, 'xyz_data.mat');
         if exist(xyz_path, 'file')
-            d = load(xyz_path);
-            xyz = d.xyz;
-            return;
+            try
+                d = load(xyz_path);
+                xyz = d.xyz;
+                return;
+            catch
+                fprintf('WARNING: Corrupt xyz_data.mat in %s\n', sim_path);
+                continue;
+            end
         end
 
         % Try plist.mat and convert
         plist_path = fullfile(sim_path, 'plist.mat');
         if exist(plist_path, 'file')
-            loaded = load(plist_path);
+            try
+                loaded = load(plist_path);
+            catch
+                fprintf('WARNING: Corrupt plist.mat in %s\n', sim_path);
+                continue;
+            end
             if isfield(loaded, 'plist')
                 plist = loaded.plist;
             else
