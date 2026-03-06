@@ -230,9 +230,44 @@ for idx = 1:length(pending_indices)
         sim.current_frame = frame;
     end
 
-    %% Save results
+    %% Save results - robust save with retry for network drives
     plist = plist(1:(plist_row-1)*num_particles, :);
-    save(fullfile(sim_full_path, 'plist.mat'), 'plist', '-v7.3');
+
+    plist_file = fullfile(sim_full_path, 'plist.mat');
+    params_file = fullfile(sim_full_path, 'sim_params.mat');
+
+    % Try saving directly first, with retry on failure
+    save_success = false;
+    for attempt = 1:3
+        try
+            fprintf('  Saving plist (attempt %d)...\n', attempt);
+            save(plist_file, 'plist', '-v7.3');
+            save_success = true;
+            break;
+        catch ME
+            fprintf('  Save failed: %s\n', ME.message);
+            if attempt < 3
+                fprintf('  Retrying in 5 seconds...\n');
+                pause(5);
+            end
+        end
+    end
+
+    % If direct save failed, try temp file approach
+    if ~save_success
+        fprintf('  Trying temp file approach...\n');
+        temp_file = fullfile(tempdir, sprintf('plist_temp_%s.mat', datestr(now,'HHMMSS')));
+        try
+            save(temp_file, 'plist', '-v7.3');
+            copyfile(temp_file, plist_file);
+            delete(temp_file);
+            save_success = true;
+            fprintf('  Saved via temp file.\n');
+        catch ME2
+            fprintf('  FAILED to save plist: %s\n', ME2.message);
+            fprintf('  Data lost for f=%.4f\n', drive_frequency);
+        end
+    end
 
     sim_params = struct();
     sim_params.drive_frequency = drive_frequency;
@@ -249,7 +284,7 @@ for idx = 1:length(pending_indices)
     sim_params.image_saving_frequency = image_saving_frequency;
     sim_params.frames_per_cycle = frames_per_cycle;
 
-    save(fullfile(sim_full_path, 'sim_params.mat'), 'sim_params');
+    save(params_file, 'sim_params');
 
     fprintf('  Completed in %.1f minutes\n', toc/60);
 
