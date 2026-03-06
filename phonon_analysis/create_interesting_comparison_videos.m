@@ -158,8 +158,10 @@ function xyz = load_sim_data(base_path, config, freq)
     end
 end
 
-function [profile, edges] = compute_wavefront(xyz, frame, axis_len, use_y, n_bins, n_eq)
+function [profile, ctrs_out] = compute_wavefront(xyz, frame, axis_len, use_y, n_bins, n_eq)
     % Compute binned displacement profile
+    % Returns profile and bin centers as "distance from drive"
+    % For Y-driven sims, flips so drive (at high Y) appears at position 0
     if nargin < 6, n_eq = 10; end
 
     n_frames = size(xyz, 3);
@@ -187,7 +189,15 @@ function [profile, edges] = compute_wavefront(xyz, frame, axis_len, use_y, n_bin
             profile(b) = mean(dpos(mask));
         end
     end
-    edges = ctrs;  % Return centers
+
+    % For Y-driven sims, drive is at HIGH Y, so flip centers and profile
+    % so that drive appears at "distance from drive = 0"
+    if use_y
+        ctrs_out = axis_len - ctrs;  % Flip: high Y -> low distance
+        profile = flipud(profile);   % Flip profile to match
+    else
+        ctrs_out = ctrs;  % X-driven: low X is drive, already correct
+    end
 end
 
 %% ==================== MAIN PROCESSING ====================
@@ -273,14 +283,15 @@ for fi = 1:length(frequencies)
         open(vw);
 
         % Compute global y-limits from first 100 frames
+        % Start with drive amplitude (2.0 px) as minimum to ensure drive is visible
         sample_frames = min(100, n_frames);
-        max_disp = 0.5;
+        max_disp = 2.5;  % Drive amplitude is 2.0, add margin
         for sf = 1:sample_frames
             [p1, ~] = compute_wavefront(xyz1, sf, axis_len1, use_y1, n_bins);
             [p2, ~] = compute_wavefront(xyz2, sf, axis_len2, use_y2, n_bins);
             max_disp = max([max_disp, max(abs(p1)), max(abs(p2))]);
         end
-        y_lim = [-max_disp*1.2, max_disp*1.2];
+        y_lim = [-max_disp*1.1, max_disp*1.1];
 
         % Generate frames
         for fr = 1:n_frames
