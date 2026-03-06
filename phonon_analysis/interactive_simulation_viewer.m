@@ -1394,6 +1394,52 @@ function [rows, cols] = get_grid_size(n)
     end
 end
 
+function [export_configs, panel_labels] = build_export_configs(S, export_view_mode)
+    % Build view_configs and panel_labels for the given view mode
+    % Used by export functions to ensure proper grouping (wavefront groups, others don't)
+
+    selected_views = S.selected_views;
+    if isempty(selected_views)
+        export_configs = {};
+        panel_labels = {};
+        return;
+    end
+
+    if strcmp(export_view_mode, 'wavefront')
+        % Group views by graph_num for wavefront mode
+        graph_nums_used = unique(cellfun(@(v) v.graph_num, selected_views));
+        n_panels = length(graph_nums_used);
+        export_configs = cell(n_panels, 1);
+        panel_labels = cell(n_panels, 1);
+
+        for gi = 1:n_panels
+            gn = graph_nums_used(gi);
+            view_indices = find(cellfun(@(v) v.graph_num == gn, selected_views));
+
+            % Build label from view names
+            labels = cellfun(@(idx) selected_views{idx}.label, num2cell(view_indices), 'UniformOutput', false);
+            panel_labels{gi} = strjoin(labels, ' + ');
+
+            % Build config using first view's info plus all view indices
+            first_view = selected_views{view_indices(1)};
+            export_configs{gi} = struct('sim_type', S.all_sim_types{first_view.sim_idx}, ...
+                'use_y', first_view.use_y, 'view_indices', view_indices);
+        end
+    else
+        % Each view gets its own panel for other modes
+        n_panels = length(selected_views);
+        export_configs = cell(n_panels, 1);
+        panel_labels = cell(n_panels, 1);
+
+        for vi = 1:n_panels
+            view = selected_views{vi};
+            panel_labels{vi} = view.label;
+            export_configs{vi} = struct('sim_type', S.all_sim_types{view.sim_idx}, ...
+                'use_y', view.use_y, 'view_indices', vi);
+        end
+    end
+end
+
 %% ==================== RENDERING ====================
 
 function render(fig)
@@ -2107,8 +2153,10 @@ function export_combined_video(fig, view_mode, output_folder, file_prefix)
     export_fig = figure('Position', [100 100 1920 1080], 'Color', 'k', 'Visible', 'off');
 
     try
-        % Get grid size
-        n_panels = length(S.axs);
+        % Build view configs for the EXPORT view mode (not the display view mode)
+        % This ensures wavefront groups simulations even if we were viewing particles
+        [export_configs, panel_labels] = build_export_configs(S, view_mode);
+        n_panels = length(export_configs);
         [rows, cols] = get_grid_size(n_panels);
 
         % Export each frame
@@ -2121,8 +2169,7 @@ function export_combined_video(fig, view_mode, output_folder, file_prefix)
 
             % Render each panel to export figure
             for idx = 1:n_panels
-                if idx > length(S.view_configs); continue; end
-                vc = S.view_configs{idx};
+                vc = export_configs{idx};
                 st = vc.sim_type;
                 use_y = vc.use_y;
 
@@ -2225,9 +2272,20 @@ function export_individual_videos(fig, view_mode, output_folder, file_prefix, se
     timestamp = datestr(now, 'yyyymmdd_HHMMSS');
     total_exported = 0;
 
-    for panel_idx = selected_panels
-        if panel_idx > length(S.view_configs); continue; end
-        vc = S.view_configs{panel_idx};
+    % Build view configs for the EXPORT view mode (ensures proper grouping)
+    [export_configs, panel_labels] = build_export_configs(S, view_mode);
+
+    % If export view differs from display view, export all panels (ignore selected_panels)
+    % because panel indices don't match between different view modes
+    if ~strcmp(view_mode, orig_view)
+        panels_to_export = 1:length(export_configs);
+    else
+        % Same view mode - use selected panels (but clamp to valid range)
+        panels_to_export = selected_panels(selected_panels <= length(export_configs));
+    end
+
+    for panel_idx = panels_to_export
+        vc = export_configs{panel_idx};
         st = vc.sim_type;
         use_y = vc.use_y;
 
