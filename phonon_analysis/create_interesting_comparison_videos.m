@@ -190,11 +190,13 @@ function [profile, ctrs_out] = compute_wavefront(xyz, frame, axis_len, use_y, n_
         end
     end
 
-    % For Y-driven sims, drive is at HIGH Y, so flip centers and profile
-    % so that drive appears at "distance from drive = 0"
+    % For Y-driven sims, drive is at HIGH Y, so compute distance from drive
+    % and flip both centers and profile so drive appears at x=0
     if use_y
-        ctrs_out = axis_len - ctrs;  % Flip: high Y -> low distance
-        profile = flipud(profile);   % Flip profile to match
+        % distance from drive = axis_len - Y_position
+        % flip so ascending: [near drive, ..., far from drive]
+        ctrs_out = flip(axis_len - ctrs);
+        profile = flip(profile);
     else
         ctrs_out = ctrs;  % X-driven: low X is drive, already correct
     end
