@@ -332,9 +332,20 @@ for fi = 1:length(frequencies)
 
             set(ax, 'FontSize', 11);
 
-            % Capture frame
+            % Capture frame with consistent size
             frame_img = getframe(fig);
-            writeVideo(vw, frame_img.cdata);
+            frame_data = frame_img.cdata;
+
+            % On first frame, store expected size
+            if fr == 1
+                expected_size = size(frame_data);
+            else
+                % Resize if size changed (can happen with MATLAB rendering)
+                if ~isequal(size(frame_data), expected_size)
+                    frame_data = imresize(frame_data, [expected_size(1), expected_size(2)]);
+                end
+            end
+            writeVideo(vw, frame_data);
 
             % Progress
             if mod(fr, 500) == 0
