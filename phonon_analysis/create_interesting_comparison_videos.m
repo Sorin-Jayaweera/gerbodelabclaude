@@ -221,6 +221,11 @@ for fi = 1:length(frequencies)
 
     fprintf('\n=== Frequency: %.4f ===\n', freq);
 
+    % Memory cleanup between frequencies
+    close all force;
+    drawnow;
+    pause(0.1);
+
     % Create frequency folder
     if ~exist(freq_folder, 'dir')
         mkdir(freq_folder);
@@ -275,14 +280,16 @@ for fi = 1:length(frequencies)
 
         fprintf('creating video (%d frames)... ', n_frames);
 
-        % Create figure
-        fig = figure('Position', [100 100 1200 600], 'Color', 'k', 'Visible', 'off');
+        try
+            % Create figure with minimal UI overhead
+            fig = figure('Position', [100 100 1200 600], 'Color', 'k', ...
+                'Visible', 'off', 'MenuBar', 'none', 'ToolBar', 'none');
 
-        % Create video writer
-        vw = VideoWriter(video_path, 'MPEG-4');
-        vw.FrameRate = fps;
-        vw.Quality = 95;
-        open(vw);
+            % Create video writer
+            vw = VideoWriter(video_path, 'MPEG-4');
+            vw.FrameRate = fps;
+            vw.Quality = 95;
+            open(vw);
 
         % Compute global y-limits from first 100 frames
         % Start with drive amplitude (2.0 px) as minimum to ensure drive is visible
@@ -349,20 +356,39 @@ for fi = 1:length(frequencies)
             end
             writeVideo(vw, frame_data);
 
-            % Progress
+            % Progress and memory management
             if mod(fr, 500) == 0
                 fprintf('%d/%d... ', fr, n_frames);
+                drawnow;  % Flush graphics pipeline
+            end
+
+            % Periodic cleanup to prevent memory buildup
+            if mod(fr, 1000) == 0
+                drawnow;
+                pause(0.01);  % Brief pause to let MATLAB clean up
             end
         end
 
         close(vw);
         close(fig);
+        drawnow;
 
         fprintf('DONE\n');
         total_videos = total_videos + 1;
 
-        % Memory cleanup
-        clearvars xyz1 xyz2;
+        catch ME
+            % Handle errors gracefully
+            fprintf('ERROR: %s\n', ME.message);
+            try close(vw); catch, end
+            try close(fig); catch, end
+            skipped_videos = skipped_videos + 1;
+        end
+
+        % Aggressive memory cleanup after each video
+        clearvars xyz1 xyz2 frame_data frame_img profile1 profile2;
+        close all force;
+        drawnow;
+        pause(0.5);  % Allow MATLAB to fully release resources
     end
 end
 
