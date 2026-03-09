@@ -28,6 +28,12 @@ output_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\interest
 % Frequencies to create videos for
 frequencies = [0.0005, 0.003, 0.01, 0.05];
 
+% Set to true to only process comparisons involving 'random'
+only_random_comparisons = true;
+
+% Set to true to see debug output when loading fails
+verbose_loading = true;
+
 % Video settings
 fps = 30;
 n_bins = 60;
@@ -78,8 +84,10 @@ comparisons = {
 
 %% ==================== HELPER FUNCTIONS ====================
 
-function xyz = load_sim_data(base_path, config, freq)
+function xyz = load_sim_data(base_path, config, freq, verbose)
     % Load simulation data, handling multiple formats
+    if nargin < 4, verbose = false; end
+
     sim_name = sprintf(config.fmt, freq);
     paths_to_check = {
         fullfile(base_path, config.folder, sim_name);
@@ -90,8 +98,16 @@ function xyz = load_sim_data(base_path, config, freq)
     for p = 1:length(paths_to_check)
         sim_path = paths_to_check{p};
 
+        if verbose
+            fprintf('\n    DEBUG: Checking path: %s\n', sim_path);
+            fprintf('      Directory exists: %d\n', exist(sim_path, 'dir') > 0);
+        end
+
         % Try xyz_data.mat first
         xyz_path = fullfile(sim_path, 'xyz_data.mat');
+        if verbose
+            fprintf('      xyz_data.mat exists: %d\n', exist(xyz_path, 'file') > 0);
+        end
         if exist(xyz_path, 'file')
             try
                 d = load(xyz_path);
@@ -105,11 +121,14 @@ function xyz = load_sim_data(base_path, config, freq)
 
         % Try plist.mat and convert
         plist_path = fullfile(sim_path, 'plist.mat');
+        if verbose
+            fprintf('      plist.mat exists: %d\n', exist(plist_path, 'file') > 0);
+        end
         if exist(plist_path, 'file')
             try
                 loaded = load(plist_path);
-            catch
-                fprintf('WARNING: Corrupt plist.mat in %s\n', sim_path);
+            catch ME
+                fprintf('WARNING: Corrupt plist.mat in %s: %s\n', sim_path, ME.message);
                 continue;
             end
             if isfield(loaded, 'plist')
@@ -117,6 +136,10 @@ function xyz = load_sim_data(base_path, config, freq)
             else
                 fn = fieldnames(loaded);
                 plist = loaded.(fn{1});
+            end
+
+            if verbose
+                fprintf('      plist type: %s, size: %s\n', class(plist), mat2str(size(plist)));
             end
 
             % Handle different plist formats
@@ -234,6 +257,12 @@ for fi = 1:length(frequencies)
     for ci = 1:length(comparisons)
         comp = comparisons{ci};
 
+        % Skip non-random comparisons if only_random_comparisons is set
+        is_random_comparison = strcmp(comp.sim1, 'random') || strcmp(comp.sim2, 'random');
+        if only_random_comparisons && ~is_random_comparison
+            continue;
+        end
+
         fprintf('  %s vs %s... ', comp.label1, comp.label2);
 
         % Check if video already exists
@@ -251,8 +280,12 @@ for fi = 1:length(frequencies)
         config1 = sim_configs.(comp.sim1);
         config2 = sim_configs.(comp.sim2);
 
-        xyz1 = load_sim_data(base_path, config1, freq);
-        xyz2 = load_sim_data(base_path, config2, freq);
+        % Use verbose loading for random sims to debug path issues
+        verbose1 = verbose_loading && strcmp(comp.sim1, 'random');
+        verbose2 = verbose_loading && strcmp(comp.sim2, 'random');
+
+        xyz1 = load_sim_data(base_path, config1, freq, verbose1);
+        xyz2 = load_sim_data(base_path, config2, freq, verbose2);
 
         if isempty(xyz1)
             fprintf('SKIP (no data for %s)\n', comp.sim1);
