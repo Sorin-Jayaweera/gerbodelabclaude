@@ -240,6 +240,13 @@ for fi = 1:length(frequencies)
         video_name = sprintf('%s_%s.mp4', comp.name, freq_str);
         video_path = fullfile(freq_folder, video_name);
 
+        % Skip if video already exists
+        if exist(video_path, 'file')
+            fprintf('SKIP (already exists)\n');
+            total_videos = total_videos + 1;  % Count as success
+            continue;
+        end
+
         % Load data for both simulations
         config1 = sim_configs.(comp.sim1);
         config2 = sim_configs.(comp.sim2);
