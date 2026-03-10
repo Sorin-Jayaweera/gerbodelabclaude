@@ -15,7 +15,8 @@ function interactive_simulation_viewer()
 % Date: 2026
 
 %% ==================== CONFIGURATION ====================
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
+paths = get_paths();
+base_path = paths.sims;
 
 % All available simulation types
 all_sim_types   = {'chevron', 'stripe', 'random', 'topdriven', 'frust_side', 'frust_top', 'stripe_top'};
