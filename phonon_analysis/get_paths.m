@@ -17,7 +17,7 @@ function paths = get_paths()
         % Linux paths
         root = '/home/sorin/AllSaves/code/gerbodelabclaude';
         paths.colloid_work = fullfile(root, 'Colloid Work Folder');
-        paths.simulations = fullfile(root, 'tdsims');
+        paths.simulations = fullfile(root, 'TDsim');
     end
 
     % Common paths relative to root
@@ -26,5 +26,5 @@ function paths = get_paths()
     paths.phonon_analysis = fullfile(root, 'phonon_analysis');
     paths.analysis_output = fullfile(root, 'analysis_output');
     paths.interesting_videos = fullfile(root, 'interesting videos');
-    paths.bdsims = fullfile(root, 'bdsims');
+    paths.bdsims = fullfile(root, 'BDsim');
 end
