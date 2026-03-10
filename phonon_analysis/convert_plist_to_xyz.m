@@ -8,7 +8,8 @@
 clear; close all; clc;
 
 %% Configuration
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
+paths = get_paths();
+base_path = paths.sims;
 
 % All simulation types and their folder structures
 sim_configs = {

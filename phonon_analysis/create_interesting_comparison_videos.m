@@ -22,8 +22,9 @@
 clear; close all; clc;
 
 %% ==================== CONFIGURATION ====================
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
-output_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\interesting videos';
+paths = get_paths();
+base_path = paths.sims;
+output_base = paths.interesting_videos;
 
 % Frequencies to create videos for
 frequencies = [0.0005, 0.003, 0.01, 0.05];

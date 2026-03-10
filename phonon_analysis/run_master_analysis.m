@@ -18,11 +18,13 @@ fprintf('============================================\n');
 fprintf('   STEP 1: SYSTEM SETUP\n');
 fprintf('============================================\n');
 
+% Get paths (auto-detects Windows vs Linux)
+paths = get_paths();
+
 % Git pull to get latest code
 fprintf('Pulling latest code from git...\n');
-repo_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude';
 old_dir = pwd;
-cd(repo_path);
+cd(paths.root);
 try
     [status, result] = system('git pull');
     if status == 0
@@ -37,9 +39,9 @@ cd(old_dir);
 
 % Add paths
 fprintf('\nAdding paths...\n');
-addpath(genpath('Z:\Colloid Cru\Colloid Work Folder'));
-addpath(genpath('Z:\Colloid Cru\Simulations'));
-addpath(genpath('Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\phonon_analysis'));
+addpath(genpath(paths.colloid_work));
+addpath(genpath(paths.simulations));
+addpath(genpath(paths.phonon_analysis));
 fprintf('Paths added.\n');
 
 % Rehash toolbox cache
@@ -53,7 +55,7 @@ fprintf('============================================\n');
 fprintf('   STEP 2: FIX/REGENERATE XYZ_DATA FILES\n');
 fprintf('============================================\n');
 
-base_path = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
+base_path = paths.sims;
 
 % All simulation types including random and stripe_top
 sim_configs = {
@@ -238,7 +240,7 @@ fprintf('============================================\n');
 fprintf('   STEP 4: GENERATE ALL ANALYSIS PLOTS\n');
 fprintf('============================================\n');
 
-output_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\analysis_output';
+output_base = paths.analysis_output;
 
 % Create output directory
 if ~exist(output_base, 'dir')
