@@ -8,12 +8,13 @@
 clear; clc;
 
 %% ==================== ADD PATHS ====================
-addpath(genpath('Z:\Colloid Cru\Colloid Work Folder'));
-addpath(genpath('Z:\Colloid Cru\Simulations'));
+paths = get_paths();
+addpath(genpath(paths.colloid_work));
+addpath(genpath(paths.simulations));
 
 %% ==================== BATCH FOLDER SETUP ====================
 batch_name = 'randomsinesims';  % RANDOM domain simulations
-batch_base = 'Z:\Colloid Cru\Spring 2026\sorins files\gerbodelabclaude\sims';
+batch_base = paths.sims;
 batch_folder = fullfile(batch_base, batch_name);
 simulations_folder = fullfile(batch_folder, 'simulations');
 analysis_folder = fullfile(batch_folder, 'analysis');
