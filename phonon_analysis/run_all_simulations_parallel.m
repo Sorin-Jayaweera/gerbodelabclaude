@@ -12,10 +12,15 @@ clear; clc;
 %% ==================== CONFIGURATION ====================
 paths = get_paths();
 
-% Add required paths
+% Add required paths (for main session)
 addpath(genpath(paths.colloid_work));
 addpath(genpath(paths.simulations));
 addpath(genpath(paths.phonon_analysis));
+
+% Store paths for workers (parfor doesn't inherit addpath)
+path_colloid_work = paths.colloid_work;
+path_simulations = paths.simulations;
+path_phonon_analysis = paths.phonon_analysis;
 
 % Base path for all simulations
 batch_base = paths.sims;
@@ -189,6 +194,11 @@ parfor j = 1:total_jobs
     end
 
     try
+        % Add paths for this worker (parfor workers don't inherit addpath)
+        addpath(genpath(path_colloid_work));
+        addpath(genpath(path_simulations));
+        addpath(genpath(path_phonon_analysis));
+
         fprintf('[Worker %d] Starting: %s f=%.4f\n', j, batch_name, drive_frequency);
 
         % Clean up partial runs
@@ -209,7 +219,8 @@ parfor j = 1:total_jobs
 
         % Initialize crystal with domain structure
         if strcmp(domain_style, 'frust')
-            sim.initialize_grains_frust();
+            % initialize_grains_frust is a standalone function, not a method
+            initialize_grains_frust(sim);
         else
             sim.initialize_grains_unfrust(domain_style);
         end

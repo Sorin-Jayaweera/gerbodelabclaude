@@ -176,7 +176,8 @@ for c = 1:size(sim_configs, 1)
 
             % Initialize crystal with domain structure
             if strcmp(domain_style, 'frust')
-                sim.initialize_grains_frust();
+                % initialize_grains_frust is a standalone function, not a method
+                initialize_grains_frust(sim);
             else
                 sim.initialize_grains_unfrust(domain_style);
             end
