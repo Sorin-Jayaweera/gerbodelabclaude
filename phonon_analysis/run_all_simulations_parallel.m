@@ -46,18 +46,14 @@ zmax = 0.45;
 num_cores = feature('numcores');
 fprintf('Detected %d CPU cores\n', num_cores);
 
-% Use all cores (or adjust if you want to leave some free)
-num_workers = num_cores;
+% Leave 2 cores free for system overhead to prevent crashes
+num_workers = max(1, num_cores - 2);
 
-% Start parallel pool if not already running
-pool = gcp('nocreate');
-if isempty(pool)
-    fprintf('Starting parallel pool with %d workers...\n', num_workers);
-    pool = parpool('local', num_workers);
-else
-    fprintf('Using existing pool with %d workers\n', pool.NumWorkers);
-    num_workers = pool.NumWorkers;
-end
+% Batch size: restart pool after this many jobs to clear accumulated memory
+jobs_per_batch = num_workers * 3;  % ~3 rounds per batch
+
+% Disable image generation in parallel mode (generate later from plist)
+generate_images_in_parallel = false;
 
 %% ==================== SIMULATION CONFIGURATIONS ====================
 % Each config: {batch_name, domain_style, name_fmt, drive_dir, width, height}
@@ -166,9 +162,32 @@ end
 results = cell(total_jobs, 1);
 
 fprintf('Starting parallel execution...\n');
+fprintf('Jobs per batch: %d (pool restarts between batches to clear memory)\n', jobs_per_batch);
 tic;
 
-parfor j = 1:total_jobs
+% Process in batches with pool restart between batches
+num_batches = ceil(total_jobs / jobs_per_batch);
+for batch_idx = 1:num_batches
+    batch_start = (batch_idx - 1) * jobs_per_batch + 1;
+    batch_end = min(batch_idx * jobs_per_batch, total_jobs);
+    batch_jobs = batch_start:batch_end;
+
+    fprintf('\n--- BATCH %d/%d (jobs %d-%d) ---\n', batch_idx, num_batches, batch_start, batch_end);
+
+    % Start/restart parallel pool for this batch
+    pool = gcp('nocreate');
+    if ~isempty(pool)
+        delete(pool);
+        pause(2);  % Let pool fully shut down
+    end
+    fprintf('Starting fresh parallel pool with %d workers...\n', num_workers);
+    pool = parpool('local', num_workers);
+
+    % Run this batch
+    batch_results = cell(length(batch_jobs), 1);
+
+    parfor bi = 1:length(batch_jobs)
+        j = batch_jobs(bi);
     c = job_configs(j);
     drive_frequency = job_freqs(j);
 
@@ -295,19 +314,24 @@ parfor j = 1:total_jobs
                 plist_row = plist_row + 1;
             end
 
-            % Save images (less frequently in parallel to reduce I/O)
-            if mod(frame, image_saving_frequency * 5) == 0  % 5x less images in parallel
-                img = sim.makeSpinImage(sim.current_particles(:,1:3), ' ');
-                fig = figure('Visible', 'off', 'Position', [100 100 800 500]);
-                imshow(img);
-                title(sprintf('%s | f=%.4f | Frame %d', domain_style, drive_frequency, frame), ...
-                    'Color', 'w', 'FontSize', 12);
-                saveas(fig, fullfile(sim_full_path, sprintf('%06d.png', frame)));
-                close(fig);
+            % Skip image generation in parallel mode to save memory
+            % Images can be generated later from plist.mat using generate_images_from_plist.m
+            if generate_images_in_parallel && mod(frame, image_saving_frequency * 10) == 0
+                try
+                    img = sim.makeSpinImage(sim.current_particles(:,1:3), ' ');
+                    imwrite(img, fullfile(sim_full_path, sprintf('%06d.png', frame)));
+                    clear img;
+                catch
+                    % Ignore image errors - data is what matters
+                end
             end
 
             sim.current_frame = frame;
         end
+
+        % Clear large arrays before saving to reduce peak memory
+        clear particles particlesFromNeighborList driven_indices fixed_indices;
+        clear equilibrium_drive fixed_equilibrium_x fixed_equilibrium_y;
 
         %% Save results
         plist = plist(1:(plist_row-1)*num_particles, :);
@@ -329,15 +353,34 @@ parfor j = 1:total_jobs
         sim_params.frames_per_cycle = frames_per_cycle;
         save(fullfile(sim_full_path, 'sim_params.mat'), 'sim_params');
 
+        % Clear simulation object and plist to free memory
+        clear sim plist;
+
         elapsed = toc(sim_tic);
         fprintf('[Worker %d] DONE: %s f=%.4f (%.1f min)\n', j, batch_name, drive_frequency, elapsed/60);
 
-        results{j} = struct('status', 'success', 'batch', batch_name, 'freq', drive_frequency, 'time', elapsed);
+        batch_results{bi} = struct('status', 'success', 'batch', batch_name, 'freq', drive_frequency, 'time', elapsed);
 
     catch ME
         fprintf('[Worker %d] FAILED: %s f=%.4f - %s\n', j, batch_name, drive_frequency, ME.message);
-        results{j} = struct('status', 'failed', 'batch', batch_name, 'freq', drive_frequency, 'error', ME.message);
+        batch_results{bi} = struct('status', 'failed', 'batch', batch_name, 'freq', drive_frequency, 'error', ME.message);
     end
+    end  % parfor
+
+    % Copy batch results to main results array
+    for bi = 1:length(batch_jobs)
+        results{batch_jobs(bi)} = batch_results{bi};
+    end
+
+    % Force memory cleanup between batches
+    clear batch_results;
+    fprintf('Batch %d complete. Clearing pool for next batch...\n', batch_idx);
+end  % batch loop
+
+% Clean up final pool
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);
 end
 
 total_time = toc;
