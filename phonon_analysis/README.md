@@ -2,29 +2,37 @@
 
 Analysis tools for studying vibrational modes in simulated colloidal crystal monolayers.
 
+> **Note**: For comprehensive project documentation, physics background, and Claude Code continuation guide, see the main [README.md](../README.md) in the repository root.
+
 ## Overview
 
-This package provides comprehensive tools to analyze phonon modes from impulse response simulations of colloidal crystals. Key capabilities:
+This package provides comprehensive tools to analyze phonon modes from **sinusoidally-driven simulations** of colloidal crystals. The project supports multiple domain types (chevron, stripe, random, frustrated) and drive directions (X-side, Y-top). Key capabilities:
 
-- **Power Spectral Analysis**: Extract frequency content from particle displacements
-- **Dispersion Relations**: Compute ω(k) relationships
+- **Interactive Viewer**: Real-time simulation exploration with `interactive_simulation_viewer.m`
+- **Bode Analysis**: Amplitude and phase vs position at drive frequency
+- **Fourier Analysis**: Power spectral analysis of particle displacements
+- **Penetration Depth**: Exponential decay fits for wave attenuation
+- **Dispersion Relations**: Compute ω(k) relationships via 2D structure factor
 - **Mode Visualization**: See how particles move at each frequency
 - **Defect Mode Analysis**: Study how defects localize vibrational energy
-- **Buckled Monolayer Modes**: Special analysis for acoustic/optical modes in buckled layers
-- **Wave Propagation**: Visualize and measure impulse wave propagation
+- **Comparison Videos**: Side-by-side lattice type and drive direction comparisons
 
 ## Quick Start
 
 ```matlab
-% Run full analysis
-run run_phonon_analysis
+% Add path and get configuration
+addpath(pwd);
+paths = get_paths();
 
-% Or analyze a single simulation manually:
-load('mysim/plist.mat');
-xyz = plist2xyz(plist);  % [N_particles, 3, N_frames]
+% Launch interactive viewer (main tool)
+interactive_simulation_viewer
 
-% Basic analysis
-analyze_phonon_modes  % Edit config section first
+% Or run complete analysis pipeline
+run_master_analysis
+
+% Load simulation data manually:
+load(fullfile(sim_path, 'plist.mat'));
+xyz = plist2xyz_auto(plist, 1);  % [N_particles, 3, N_frames], skip=1
 
 % Wave visualization
 x0 = mean(squeeze(xyz(:,1,1:10)), 2);
@@ -35,30 +43,51 @@ visualize_wave_propagation(xyz, x0, y0, 1:10:100, 'myoutput');
 results = analyze_buckled_modes(xyz, dt, lattice_constant);
 ```
 
-## Functions
+## Key Functions
 
-### Main Scripts
+### Interactive Tools
 
 | File | Description |
 |------|-------------|
-| `run_phonon_analysis.m` | Master script - run this for complete analysis |
-| `analyze_phonon_modes.m` | Single simulation Fourier analysis |
-| `compare_impulse_directions.m` | Compare 0°, 60°, 120° impulse directions |
+| `interactive_simulation_viewer.m` | Main GUI - view/compare all simulations |
+| `analysis_viewer.m` | Browse analysis results with descriptions |
+| `interactive_kymograph_viewer.m` | Specialized kymograph viewer |
+
+### Master Scripts
+
+| File | Description |
+|------|-------------|
+| `run_master_analysis.m` | Complete pipeline: setup, fix data, videos, analysis |
+| `run_all_simulations.m` | Run all 7 sim types × 20 frequencies |
+| `run_all_simulations_parallel.m` | Parallel version using parfor |
 
 ### Analysis Functions
 
 | File | Description |
 |------|-------------|
+| `analyze_frequency_response.m` | Bode-style amplitude/phase analysis |
+| `analyze_phonon_modes.m` | Fourier power spectrum analysis |
+| `compute_dispersion_2d.m` | Full 2D S(k,ω) structure factor |
 | `compute_dynamical_matrix.m` | Harmonic approximation dynamical matrix |
 | `compute_velocity_autocorrelation.m` | VACF and density of states |
 | `analyze_defect_modes.m` | Localized modes at coordination defects |
 | `analyze_buckled_modes.m` | Acoustic/optical modes in buckled layers |
 
-### Visualization
+### Visualization & Video
 
 | File | Description |
 |------|-------------|
 | `visualize_wave_propagation.m` | Kymographs, animations, wave speed |
+| `create_lattice_comparison_videos.m` | Side-by-side lattice comparisons |
+| `create_drive_comparison_videos.m` | X vs Y drive direction comparisons |
+
+### Utilities
+
+| File | Description |
+|------|-------------|
+| `get_paths.m` | Cross-platform path configuration (Windows/Linux) |
+| `plist2xyz_auto.m` | Convert plist to xyz format |
+| `verify_data.m` | Data integrity checks |
 
 ## Data Format
 
@@ -68,7 +97,7 @@ The simulation outputs `plist`, an Nx4 array:
 - Column 4: frame number
 
 ### Converted: xyz
-Use `plist2xyz(plist)` to get a 3D array:
+Use `plist2xyz_auto(plist, frame_skip)` to get a 3D array:
 - Dimension 1: particle index (1 to N_particles)
 - Dimension 2: coordinate (1=x, 2=y, 3=z)
 - Dimension 3: frame number (1 to N_frames)
@@ -77,13 +106,17 @@ Note: z is scaled by particle diameter (10 pixels in simulation).
 
 ## Physical Parameters
 
-| Parameter | Simulation | Experiment |
-|-----------|------------|------------|
-| Particle diameter | 10 pixels | 13 pixels |
-| Looseness | 1.06 | varies |
-| Lattice constant | ~10.6 px | ~13.8 px |
+| Parameter | Simulation | Notes |
+|-----------|------------|-------|
+| Particle diameter | 10 pixels | Simulation units |
+| Looseness | 1.06 | Lattice expansion factor |
+| Lattice constant | ~10.6 px | diameter × looseness |
+| zmax | 0.45 | Max buckling amplitude |
 | dt per step | 0.05 | - |
-| Data save frequency | 100 | - |
+| Data save frequency | 2 | Save every 2 frames |
+| Drive amplitude | 2.0 pixels | Sinusoidal drive |
+| Drive/fixed width | 25 pixels | Edge boundary region |
+| Total frames | 20,000 | Per simulation |
 
 ## Triangular Lattice Directions
 
@@ -112,43 +145,48 @@ Coordination defects (5-7 pairs) create localized vibrational modes that can:
 - Store energy locally
 - Affect thermal transport
 
-## Example Simulation Setup
+## Simulation Types
+
+Seven simulation configurations across 20 frequencies (0.0004 to 0.10 oscillations/frame):
+
+| Name | Folder | Drive Direction | Domain Type |
+|------|--------|-----------------|-------------|
+| chevron_side | drivensinesims | X (left edge) | Zigzag/Chevron |
+| stripe_side | stripesinesims | X | Parallel stripes |
+| random_side | randomsinesims | X | Random domains |
+| frust_side | frustsinesims | X | Frustrated zigzag |
+| chevron_top | topdrivensims | Y (top edge) | Zigzag/Chevron |
+| stripe_top | stripetopsims | Y | Parallel stripes |
+| frust_top | frusttopsims | Y | Frustrated zigzag |
+
+## Example: Running Simulations
 
 ```matlab
-% TDsim impulse simulation
-sim = TDsim();
-sim.width = 500;
-sim.height = 300;
-sim.looseness = 1.06;
-sim.zmax = 0.45;
-sim.data_saving_frequency = 100;
-sim.image_saving_frequency = 1000;
-sim.num_frames = 60000;
+% Run all simulations (sequential)
+run_all_simulations
 
-sim.initialize_grains_unfrust('zigzags');
+% Run with parallel processing
+run_all_simulations_parallel
 
-% Apply impulse to left edge
-indices = sim.initial_particles(:,1) < 25;
-particles = sim.initial_particles;
-particles(indices, 1) = particles(indices, 1) + 0.5;  % 0.5 pixel impulse
-sim.initial_particles = particles;
-sim.current_particles = particles;
-
-sim.run_sim('phonon_sim/', 1, true, true);
+% Run a single simulation type
+run_sinusoidal_sim('stripe_side', 0.005)  % stripe X-driven at f=0.005
 ```
 
 ## Future Work
 
-1. **Multiple layers**: Extend to 3D stacked crystals
-2. **Defect engineering**: Systematic study of defect effects
-3. **Nonlinear modes**: Anharmonic effects at large amplitudes
-4. **Experimental validation**: Compare with tracked particle data
+See the main [README.md](../README.md) for the complete task list. Key priorities:
+
+- Complete random_side simulations (some frequencies may be missing)
+- Run dispersion analysis on all completed simulations
+- Generate summary plots comparing all lattice types
+- Extract wavelengths and build dispersion curves ω(k)
 
 ## References
 
 - Wang thesis: Brownian dynamics fundamentals
-- Standard solid-state physics: Ashcroft & Mermin for phonon theory
+- Ashcroft & Mermin: Solid state physics, phonon theory
+- See main README for additional online resources
 
 ## Author
 
-Gerbode Lab, 2026
+Gerbode Lab, Harvey Mudd College, 2026
