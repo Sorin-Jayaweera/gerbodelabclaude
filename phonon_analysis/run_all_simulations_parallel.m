@@ -183,6 +183,12 @@ for batch_idx = 1:num_batches
     fprintf('Starting fresh parallel pool with %d workers...\n', num_workers);
     pool = parpool('local', num_workers);
 
+    % Add paths to all workers BEFORE parfor (avoids transparency violation)
+    parfevalOnAll(@addpath, 0, genpath(path_colloid_work));
+    parfevalOnAll(@addpath, 0, genpath(path_simulations));
+    parfevalOnAll(@addpath, 0, genpath(path_phonon_analysis));
+    fprintf('Paths added to all workers.\n');
+
     % Run this batch
     batch_results = cell(length(batch_jobs), 1);
 
@@ -213,10 +219,7 @@ for batch_idx = 1:num_batches
     end
 
     try
-        % Add paths for this worker (parfor workers don't inherit addpath)
-        addpath(genpath(path_colloid_work));
-        addpath(genpath(path_simulations));
-        addpath(genpath(path_phonon_analysis));
+        % Paths already added via parfevalOnAll before parfor started
 
         fprintf('[Worker %d] Starting: %s f=%.4f\n', j, batch_name, drive_frequency);
 
